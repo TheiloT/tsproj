@@ -58,7 +58,7 @@ class COMP2D(BaseCSC):
 		err_bound = self.error_tol if err is None else err
 
 		chosen_vals = np.zeros(numOfelements)
-		chosen_idx = np.zeros(numOfelements, dtype=np.int)
+		chosen_idx = np.zeros(numOfelements, dtype=np.int32)
 
 		residual = np.copy(y_seg)
 		err_residual = np.linalg.norm(residual)/np.sqrt(np.size(residual))
@@ -67,7 +67,7 @@ class COMP2D(BaseCSC):
 			print("Initial residual ", err_residual)
 
 		# Dictionary to collect expanding set of dictionary
-		temp_idx = np.zeros(numOfmaxcoeffs, dtype=np.int)
+		temp_idx = np.zeros(numOfmaxcoeffs, dtype=np.int32)
 		dictionary_active = np.zeros((slen, numOfmaxcoeffs))
 
 		iternum = 0

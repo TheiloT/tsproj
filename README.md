@@ -13,6 +13,8 @@ Please email Andrew Song (andrew90@mit.edu) for any questions/suggestions
 <h3>Getting started</h3>
 To get started, clone the repository and run
 
+(python 3.9)
+
 ```
 pip install -r requirements.txt
 ```

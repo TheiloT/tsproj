@@ -52,7 +52,7 @@ def train(folder_name):
     print("load model parameters.")
     filename = os.path.join(EXPERIMENT_PATH, 'config','config_model.yml')
     file = open(filename, "rb")
-    config_m = yaml.load(file)
+    config_m = yaml.safe_load(file)
     file.close()
 
     ####################################
@@ -60,7 +60,7 @@ def train(folder_name):
     print("load data parameters.")
     filename = os.path.join(EXPERIMENT_PATH, 'config','config_data.yml')
     file = open(filename, "rb")
-    config_d = yaml.load(file)
+    config_d = yaml.safe_load(file)
     file.close()
 
     ####################################
@@ -124,7 +124,7 @@ def predict(folder_name):
     print("load model parameters.")
     filename = os.path.join(EXPERIMENT_PATH, 'config','config_model.yml')
     file = open(filename, "rb")
-    config_m = yaml.load(file)
+    config_m = yaml.safe_load(file)
     file.close()
 
     ####################################
@@ -132,7 +132,7 @@ def predict(folder_name):
     print("load data parameters.")
     filename = os.path.join(EXPERIMENT_PATH, 'config','config_data.yml')
     file = open(filename, "rb")
-    config_d = yaml.load(file)
+    config_d = yaml.safe_load(file)
     file.close()
 
     ####################################
@@ -218,7 +218,7 @@ def train_simulation(folder_name):
     print("load model parameters.")
     filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_model.yml')
     file = open(filename, "rb")
-    config_m = yaml.load(file)
+    config_m = yaml.safe_load(file)
     file.close()
 
     ####################################
@@ -226,7 +226,7 @@ def train_simulation(folder_name):
     print("load data parameters.")
     filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_data.yml')
     file = open(filename, "rb")
-    config_d = yaml.load(file)
+    config_d = yaml.safe_load(file)
     file.close()
 
     ####################################
