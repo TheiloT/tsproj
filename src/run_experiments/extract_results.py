@@ -15,7 +15,7 @@ import time
 import h5py
 import sys
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 PATH = os.path.dirname(os.path.abspath(__file__))
@@ -67,6 +67,47 @@ def display_results(folder_name):
 		init_d = results['init_d']
 
 	drawFilters(results['d'], init_d)
+
+	if 'd_distance' in results:
+		drawDictError(results['d_distance'])
+	plt.show()
+
+
+@extract_results.command()
+@click.option("--folder_name", default="", help="folder name in experiment directory")
+def display_results_simulation(folder_name):
+
+	####################################
+	# load model parameters
+	print("load model parameters.")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_model.yml')
+	file = open(filename, "rb")
+	config_m = yaml.safe_load(file)
+	file.close()
+
+	####################################
+	# load data parameters
+	print("load data parameters.")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_data.yml')
+	file = open(filename, "rb")
+	config_d = yaml.safe_load(file)
+	file.close()
+
+	####################################
+	# load results
+	print("load results")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'results','CDL_snr')
+	file = open(filename, "rb")
+	results = pickle.load(file)
+	file.close()
+
+	####################################
+	if 'd_init' not in results:
+		init_d = None
+	else:
+		init_d = list(results['d_init'].values())[0][0]
+
+	drawFilters(list(results['d_train_interp'].values())[0][0], init_d)
 
 	if 'd_distance' in results:
 		drawDictError(results['d_distance'])
@@ -273,6 +314,8 @@ def display_spikesorting_errorcurve():
 	filename = os.path.join(PATH,'experiments/spikesorting_comparison_result')
 	with open(filename,'wb') as f:
 		pickle.dump(result, f)
+
+
 
 # @extract_results.command()
 # @click.argument("keys",nargs=-1)

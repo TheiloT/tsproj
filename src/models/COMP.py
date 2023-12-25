@@ -132,7 +132,7 @@ class COMP(BaseCSC):
 		boundary: boolean (default=1)
 			If 1, accounts for truncated templates as well (clen = slen + dlen - 1)
 			If 0, accounts for whole templates only (cldn = slen - dlen + 1)
-		"""
+		"""		
 		assert(len(np.where(abs(np.linalg.norm(dictionary,axis=0)-1)>1e-6)[0]) == 0), "Not normalized"
 
 		numOfsamples, numOfelements = dictionary.shape
@@ -159,6 +159,8 @@ class COMP(BaseCSC):
 
 		iternum = 0
 		lower_mat = [1]
+
+		print("running")
 
 		while not self.terminate(iternum, numOfmaxcoeffs, err_residual, err_bound):
 			#######################
@@ -192,6 +194,7 @@ class COMP(BaseCSC):
 			# Projection step
 			#######################
 
+			print("Projection iteration ", iternum)
 			# placeholder for coefficients
 			temp_idx[iternum] = filter_idx*clen + coeff_idx
 

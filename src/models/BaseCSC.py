@@ -72,20 +72,25 @@ class BaseCSC(metaclass=ABCMeta):
 			indicates which group the segment is associated with.
 			sparsity level will be different for each segment
 		"""
+		from dask.diagnostics import ProgressBar
 
 		numOfelements = d.shape[1]
 		coeffs = {}
 
+		# https://stackoverflow.com/questions/57820724/why-does-dask-perform-so-slower-while-multiprocessing-perform-so-much-faster
 		if self.pflag:	# Parallel implementation via Dask
 			output = []
 			for k, y_seg in tqdm(y_seg_set.items()):
 				if indices is None:
-					a = delayed(self.extractCode_seg_eff)(y_seg, d, sparsity=None, boundary=boundary)
+					a = delayed(self.extractCode_seg)(y_seg, d, sparsity=None, boundary=boundary)
 				else:
-					a = delayed(self.extractCode_seg_eff)(y_seg, d, sparsity=indices[k], boundary=boundary)
+					a = delayed(self.extractCode_seg)(y_seg, d, sparsity=indices[k], boundary=boundary)
 				output.append(a)
-			o = compute(*(output))
-			coeffs = {i:code_sparse(o[i], numOfelements) for i in np.arange(np.shape(o)[0])}
+			with ProgressBar():
+				o = compute(*(output), scheduler='processes')
+			# coeffs = {i:code_sparse(o[i], numOfelements) for i in np.arange(np.shape(o)[0])}
+			coeffs = {i:code_sparse(o[i][0], numOfelements) for i in range(len(o))}				# coeffs = {i:code_sparse(o[i], numOfelements) for i in np.arange(np.shape(o)[0])}
+
 		else:	# Sequential implementation
 			for k, y_seg in tqdm(y_seg_set.items()):
 				if indices is None:
