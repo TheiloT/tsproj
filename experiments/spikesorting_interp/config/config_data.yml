@@ -18,6 +18,13 @@ mode: external
 starttime_noise: 2.1
 endtime_noise: 2.45
 
+
 # external mode
 noise: 0.1
 
+
+noise_start: 2.1
+noise_end: 2.45
+noise_step: 0.05
+T: 2
+numOftrials: 5

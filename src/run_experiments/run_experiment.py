@@ -240,7 +240,7 @@ def train_simulation(folder_name):
     # load data
     print("Generate train data.")
     fs = config_d['Fs']
-    filter_length = 1
+    filter_length = 0.001#1
     amps = [1,2]
     numOfevents = config_m['numOfevents']
     T = config_d['T']
@@ -258,10 +258,12 @@ def train_simulation(folder_name):
             print("Iteration ",i)
             realization={}
 
+            print("Generating data")
             truth, event_indices = generate_Simulated_continuous(numOfevents, T, fs, dictionary ,filter_length, amps)
-
+            print("Iteration ",i, " Truth shape ", truth.shape)
             signal = truth + noisevar*np.random.randn(T*fs)
 
+            print("Saving data to", folder_name)
             filename = os.path.join(PATH, 'experiments', folder_name, 'data','T_{}_noise_{}_num_{}_{}.hdf5'.format(T,noisevar, config_m['numOfevents'], i))
             with h5py.File(filename,'w') as f:
                 # dset = f.create_dataset("data", data = signal[:-1])
@@ -277,6 +279,7 @@ def train_simulation(folder_name):
     # Acutal experiment
     ######################################
 
+    config_m['numOfelements'] = len(dictionary.keys())
     dlen = config_m['dlen']
     if config_m['interpolate']>0:
         interval = 1/int(config_m['interpolate'])
@@ -342,8 +345,8 @@ def train_simulation(folder_name):
 
             for idx in np.arange(config_m['numOfiterations']):
                 print("Noise ", noise," Iteration ", idx, " for Trial ", tidx)
-                distance_original[:, idx] = recovery_error_translate(d_true_discrete, d_train)
-                code_original, err = csc.extractCode_seg_projection_eff(signal, d_train, boundary=0)
+                distance_original[:, idx] = recovery_error(d_true_discrete, d_train)
+                code_original, err = csc.extractCode_seg_eff(signal, d_train, boundary=0)
                 code_original = code_sparse(code_original, config_m['numOfelements'])
                 d_train, _, _, _ = cdl.updateDictionary({0: signal}, d_train, {0: code_original}, {}, 1)
 
@@ -357,11 +360,11 @@ def train_simulation(folder_name):
 
             for idx in np.arange(config_m['numOfiterations']):
                 print("Noise ", noise," Iteration ", idx, " for Trial ", tidx)
-                distance_interp[:, idx], interp_indices = recovery_error_interp(d_true_discrete, d_train_interp, delay_arr)
+                distance_interp[:, idx], interp_indices = recovery_error_interp(d_true_discrete, d_train_interp, len(delay_arr))
 
                 [d_interpolated, interpolator] = generate_interpolated_Dictionary(d_train_interp, config_m['interpolate'])
 
-                code_original, err_interp = csc.extractCode_seg_projection_eff(signal, d_interpolated, boundary=0)
+                code_original, err_interp = csc.extractCode_seg_eff(signal, d_interpolated, boundary=0)
                 code_original = code_sparse(code_original, d_interpolated.shape[1])
 
                 d_train_interp, _, _, _ = cdl.updateDictionary({0: signal}, d_train_interp, {0: code_original}, interpolator,1)

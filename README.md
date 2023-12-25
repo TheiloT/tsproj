@@ -23,7 +23,7 @@ To run CDL without interpolation on spikesorting application run the following,
 
 ```
 cd src/run_experiments
-python run_experiments.py train --folder_name=spikesorting_no_interp
+python run_experiment.py train --folder_name=spikesorting_no_interp
 ```
 
 If you want to run CDL with interpolation, change "spikesorting_no_interp"  to "spikesorting_interp".
@@ -39,6 +39,11 @@ To generate the error curve (along with pre-computed baseline error curves), run
 
 ```
 python extract_results.py display-spikesorting-errorcurve
+```
+
+To train on a simulated dataset
+```
+python src/run_experiments/run_experiment.py train-simulation --folder_name=sim
 ```
 
 This command will generate the error curve and save it.

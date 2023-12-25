@@ -47,13 +47,18 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
 	events_indices = np.zeros((numOfelements, numOfevents))
 
 	for fidx in np.arange(numOfelements):
+		print(f"\rGenerating {fidx+1}/{numOfelements} elements", end="")
 		events_idx = np.sort(T*np.random.rand(numOfevents))
+		print("events", events_idx)
 
 		# Event index generation
 		idx_diff = np.where(events_idx[1:] - events_idx[:-1]<filter_length)[0]
 		condition = len(idx_diff) == 0 and (events_idx[0] > filter_length) and (events_idx[-1] < T - filter_length)
 
+		counter = 0
 		while not condition:
+			print(f"\rGenerating {fidx+1}/{numOfelements} elements (retry {counter+1})", end="")
+			counter += 1
 			if events_idx[0] <= filter_length:
 				new_idx = T*np.random.rand()
 				events_idx[0] = new_idx
@@ -84,7 +89,7 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
 			delta = start_sample * interval - event_timestamp
 
 			maxamp = -100
-			filter_length_in_samples = filter_length * fs
+			filter_length_in_samples = int(filter_length * fs)
 			filter_realization = np.zeros(filter_length_in_samples)
 
 			for sidx in np.arange(filter_length_in_samples):
