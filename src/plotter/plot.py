@@ -40,13 +40,13 @@ def drawFilters(d, init_d=None):
 def drawDictError(errors):
 	"""
 	Plots the dictionary distance from the initial dictionary as a function of iterations
-
+r
 	"""
 
 	numOfelements = errors.shape[0]
 	fig, ax = plt.subplots(figsize=(8,6))
 	for idx in np.arange(numOfelements):
-		plt.plot(errors[idx,:], label='Element {}'.format(idx))
+		plt.plot(errors[idx, :], label='Element {}'.format(idx))
 
 	plt.title("Dictionary error")
 	plt.xlabel('Iterations', fontsize=15)

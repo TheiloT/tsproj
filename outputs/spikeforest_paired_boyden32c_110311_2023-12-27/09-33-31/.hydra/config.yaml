@@ -1,0 +1,6 @@
+output:
+  dir: test
+dataset:
+  type: spikeforest
+  name: paired_boyden32c
+  recording: 110311

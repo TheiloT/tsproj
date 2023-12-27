@@ -1,0 +1,23 @@
+# type: spikeforest
+# name:  hybrid_drift_tetrode
+# recording: "rec_4c_600s_11"
+# uri: sha1://43298d72b2d0860ae45fc9b0864137a976cb76e8?hybrid-janelia-spikeforest-recordings.json
+
+type: synth
+name:
+recording:
+uri:
+
+# stype: spikeforest
+# name:  hybrid_drift_tetrode
+# recording: "rec_4c_600s_11"
+# uri: sha1://43298d72b2d0860ae45fc9b0864137a976cb76e8?hybrid-janelia-spikeforest-recordings.json
+
+
+tstart_s:
+tstop_s:
+
+preprocess: true
+preprocess_params:
+  freq_min: 300
+  freq_max: 6000

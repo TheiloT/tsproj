@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cdlgr"
+version = "0.0.1"
+description = "ML for timeseries project"
+requires-python = ">=3.8"
+dependencies = [
+    "scikit-learn==1.3.2",
+    "matplotlib==3.5.0",
+    "natsort==8.4.0",
+    "hydra-core==1.3.2",
+    "pandas==2.0.3",
+    "spikeforest==0.12.7",
+    "spikeinterface==0.99.1"
+]
+
+[tool.setuptools.packages.find]
+include = ["cdlgr"]
+
+[project.scripts]
+ssrun = "cdlgr.main:main"

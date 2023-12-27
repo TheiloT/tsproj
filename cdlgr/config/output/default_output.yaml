@@ -1,0 +1,3 @@
+plot_traces: false
+plot_waveforms: false
+plot_snrs: false

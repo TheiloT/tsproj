@@ -1,0 +1,7 @@
+dictionary:
+  num_elements: 5
+  element_length_ms: 5
+
+cdl:
+  num_iterations: 10
+  interpolate: 1

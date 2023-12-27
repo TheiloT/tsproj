@@ -1,0 +1,13 @@
+output:
+  dir: test
+dataset:
+  type: spikeforest
+  name: hybrid_janelia
+  recording: REC_4C_1200S_11
+  uri: sha1://43298d72b2d0860ae45fc9b0864137a976cb76e8?hybrid-janelia-spikeforest-recordings.json
+  tstart_s: null
+  tstop_s: null
+  preprocess: true
+  preprocess_params:
+    freq_min: 300
+    freq_max: 6000
