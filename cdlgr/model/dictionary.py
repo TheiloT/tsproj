@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
+import spikeinterface.full as si
 
 class Dictionary:
     def __init__(self, dataset, config):
@@ -17,7 +18,35 @@ class Dictionary:
 
     def initialize(self):
         print("Initializing dictionary...")
-        # no initialization for now
+
+        wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500,
+                                        mode="memory")
+        templates = wv.get_all_templates()
+        plt.figure(figsize=(10,5))
+        for i in range(templates.shape[0]):
+            plt.plot(templates[i, :, 0], label=f"Unit {i}")
+        plt.legend()
+        plt.savefig("templates.png")
+        plt.figure(figsize=(10,5))
+        for i in range(templates.shape[0]):
+            plt.plot(templates[i, :, 0]/np.linalg.norm(templates[i, :, 0]), label=f"Unit {i}")
+        plt.legend()
+        plt.savefig("templates-n.png")
+
+        if self.config["model"]["dictionary"]["init_real_templates"]:
+            print("Initializing dictionary with real templates...")
+            for i in range(min(self.num_elements, templates.shape[0])):
+                # plt.plot(templates[i, :, 0])
+                # print(templates.shape)
+                print(self.dictionary.shape)
+                if templates.shape[1] < self.element_length:
+                    self.dictionary[:, i] = np.pad(templates[i, :, 0], (0, self.dictionary.element_length - templates.shape[1]), 'constant')
+                else:
+                    self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, 0]
+            # plt.show()
+
+            self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
+
    
     def getSignalIndices(self, dlen, indices):
         """
@@ -58,7 +87,7 @@ class Dictionary:
                 clen = slen + self.element_length - 1
 
                 numOfinterp = len(interpolator.keys())
-                print("numOfinterp", numOfinterp)
+                # print("numOfinterp", numOfinterp)
 
                 coeffs_seg = {}
                 filter_delay_indices = {}
@@ -140,6 +169,8 @@ class Dictionary:
 
         # return d_updated, indices_set, coeffs_set, y_extracted_set
         self.dictionary = d_updated
+
+        return y_extracted_set
 
     def compute_interp_matrix(self, interpolator, dlen):
         """
@@ -286,10 +317,9 @@ class Dictionary:
 
         return d_interpolated, interpolator
     
-    def plot(self, save=False):
-        plt.figure(figsize=(10,10))
+    def plot(self, iteration):
+        plt.figure(figsize=(10,5))
         for i in range(self.num_elements):
-            plt.subplot(5,5,i+1)
-            plt.plot(self.dictionary[:,i])
-            plt.axis('off')
-        plt.show()
+            plt.plot(self.dictionary[:,i], label=f"Element {i}")
+        plt.legend()
+        plt.savefig(f"dictionary-{iteration:03}.png")

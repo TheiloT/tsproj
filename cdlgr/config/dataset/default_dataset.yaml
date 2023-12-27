@@ -17,6 +17,8 @@ uri:
 tstart_s:
 tstop_s:
 
+channel: 0
+
 preprocess: true
 preprocess_params:
   freq_min: 300

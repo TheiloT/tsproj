@@ -1,9 +1,10 @@
 dictionary:
   num_elements: 5
-  element_length_ms: 2.3 # should be odd
+  element_length_ms: 2.3 # should make an odd number of samples
+  init_real_templates: false
 
 cdl:
-  num_iterations: 100
-  interpolate: 4 # should be even, 0 means no interpolation
-  sparsity_tol: 20
+  num_iterations: 40
+  interpolate: 10 # should be even, 0 means no interpolation
+  sparsity_tol: 3
   error_tol: 0.01

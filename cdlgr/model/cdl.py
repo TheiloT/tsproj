@@ -14,44 +14,55 @@ class CDL:
         self.num_iterations = self.config["model"]["cdl"]["num_iterations"]
         self.interpolate = self.config["model"]["cdl"]["interpolate"]
         # traces = self.dictionary.dataset.recording.get_traces()[920:15000, 0]
-        traces = self.dictionary.dataset.recording.get_traces()[:15000, 0]
+        traces = self.dictionary.dataset.recording.get_traces()[1200:1800, 0]
         
         self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol"]
         self.error_tol = self.config["model"]["cdl"]["error_tol"]
 
+        plt.figure()
         plt.plot(traces)
-        plt.show()
-
-        # wv = si.extract_waveforms(self.dictionary.dataset.recording, self.dictionary.dataset.sorting_true, max_spikes_per_unit=2500,
-        #                             mode="memory")
-        # templates = wv.get_all_templates()
-        # for i in range(templates.shape[0]):
-        #     plt.plot(templates[i, :, 0])
-        #     print(templates.shape)
-        #     print(self.dictionary.dictionary.shape)
-        #     if templates.shape[1] < self.dictionary.element_length:
-        #         self.dictionary.dictionary[:, i] = np.pad(templates[i, :, 0], (0, self.dictionary.element_length - templates.shape[1]), 'constant')
-        #     else:
-        #         self.dictionary.dictionary[:, i] = templates[i, templates.shape[1]//2-self.dictionary.element_length//2:templates.shape[1]//2+self.dictionary.element_length//2+1, 0]
-        # plt.show()
-
-        # self.dictionary.dictionary /= np.linalg.norm(self.dictionary.dictionary, axis=0)
-
+        plt.savefig("traces.png")
 
         for i in range(self.num_iterations):
             print(f"Iteration {i+1}/{self.num_iterations}")
-            if i % 10 == 0:
-                self.dictionary.plot()
+            self.dictionary.plot(i)
             interpolated_dict, interpolator = self.dictionary.interpolate(self.interpolate, kind='sinc')
             print(interpolated_dict.shape)
             # sparse_coeffs = self.csc(traces, self.dictionary.dictionary, sparsity=None, boundary=False)
             sparse_coeffs = self.code_sparse(
                 self.csc_old(
-                    traces, interpolated_dict, sparsity=None, boundary=True
+                    traces, interpolated_dict, sparsity=None, boundary=False
                 ), interpolated_dict
             )
             print(sparse_coeffs)
-            self.dictionary.update({0: traces}, {0: sparse_coeffs}, interpolator)
+            if i != self.num_iterations - 1:
+                self.dictionary.update({0: traces}, {0: sparse_coeffs}, interpolator)
+
+        self.reconstruct(traces, sparse_coeffs, interpolated_dict)
+
+    def reconstruct(self, traces, sparse_coeffs, interpolated_dict):
+        # assert self.interpolate == 0, "Reconstruction only works for non-interpolated dictionaries"
+
+        reconstructed = np.zeros(traces.shape[0] + interpolated_dict.shape[0] - 1)
+        print(reconstructed.shape)
+        for i in sparse_coeffs.keys():
+            for j, idx in enumerate(sparse_coeffs[i]["idx"]):
+                print(idx, idx + len(interpolated_dict[:, i]))
+                
+                reconstructed[idx : idx + len(interpolated_dict[:, i])] += (
+                    (sparse_coeffs[i]["amp"][j] * interpolated_dict[:, i])#[:traces.shape[0] - idx]
+                )
+
+        reconstructed = reconstructed[interpolated_dict.shape[0] - 1:]
+        
+        plt.figure()
+        plt.plot(traces, label="original")
+        plt.plot(reconstructed, label="reconstructed")
+        plt.legend()
+        plt.savefig("reconstructed.png")
+
+        return reconstructed
+
 
     def code_sparse(self, dense_coeffs, interpolated_dict):
         """
