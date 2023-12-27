@@ -14,8 +14,9 @@ uri:
 # uri: sha1://43298d72b2d0860ae45fc9b0864137a976cb76e8?hybrid-janelia-spikeforest-recordings.json
 
 
-tstart_s:
-tstop_s:
+tstart_s: 0.11
+tstop_s: 0.3
+duration_s: 20
 
 channel: 0
 

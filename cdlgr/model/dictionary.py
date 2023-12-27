@@ -19,17 +19,18 @@ class Dictionary:
     def initialize(self):
         print("Initializing dictionary...")
 
+        self.channel = self.config["dataset"]["channel"]
         wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500,
                                         mode="memory")
         templates = wv.get_all_templates()
         plt.figure(figsize=(10,5))
         for i in range(templates.shape[0]):
-            plt.plot(templates[i, :, 0], label=f"Unit {i}")
+            plt.plot(templates[i, :, self.channel], label=f"Unit {i}")
         plt.legend()
         plt.savefig("templates.png")
         plt.figure(figsize=(10,5))
         for i in range(templates.shape[0]):
-            plt.plot(templates[i, :, 0]/np.linalg.norm(templates[i, :, 0]), label=f"Unit {i}")
+            plt.plot(templates[i, :, self.channel]/np.linalg.norm(templates[i, :, self.channel]), label=f"Unit {i}")
         plt.legend()
         plt.savefig("templates-n.png")
 
@@ -40,9 +41,9 @@ class Dictionary:
                 # print(templates.shape)
                 print(self.dictionary.shape)
                 if templates.shape[1] < self.element_length:
-                    self.dictionary[:, i] = np.pad(templates[i, :, 0], (0, self.dictionary.element_length - templates.shape[1]), 'constant')
+                    self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.dictionary.element_length - templates.shape[1]), 'constant')
                 else:
-                    self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, 0]
+                    self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, self.channel]
             # plt.show()
 
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)

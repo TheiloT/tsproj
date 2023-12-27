@@ -13,8 +13,11 @@ def plot_preprocessed(dataset, config: DictConfig):
         )
         plt.show()
 
-    snrs = si.compute_snrs(wv)
-    snrs_arr = np.array(list(snrs.values()))
+    
+    if config["output"]['plot_waveforms'] or config["output"]["plot_snrs"]:
+        # bug if signal shorter than chunk size
+        snrs = si.compute_snrs(wv)
+        snrs_arr = np.array(list(snrs.values()))
 
     if config["output"]['plot_waveforms']:
         # ags = np.argsort(snrs_arr)[::-1]

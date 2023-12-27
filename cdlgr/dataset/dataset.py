@@ -11,6 +11,10 @@ class Dataset:
 
 def get_dataset(config: DictConfig):
     type_dataset = config["dataset"]["type"]
+
+    t_start = config["dataset"]["tstart_s"]
+    t_stop = config["dataset"]["tstop_s"]
+
     if type_dataset == "spikeforest":
         print(f"Loading dataset {config['dataset']['name']}/{config['dataset']['recording']}...")
         if "uri" in config["dataset"]:
@@ -43,9 +47,6 @@ def get_dataset(config: DictConfig):
         print('X:', recording.get_channel_locations()[:, 0].T)
         print('Y:', recording.get_channel_locations()[:, 1].T)
 
-        t_start = config["dataset"]["tstart_s"]
-        t_stop = config["dataset"]["tstop_s"]
-
         if t_start is not None or t_stop is not None:
             print("Subsetting recording...")
             recording = recording.frame_slice(start_frame=int(t_start * recording.get_sampling_frequency()), end_frame=int(t_stop * recording.get_sampling_frequency()))
@@ -64,12 +65,17 @@ def get_dataset(config: DictConfig):
     
     elif type_dataset == "synth":
         recording, sorting = si.generate_ground_truth_recording(
-            durations=[20],
+            durations=[config["dataset"]["duration_s"]],
             num_units=3,
             seed=0,
             noise_kwargs=dict(
                 noise_level=1,
                 strategy='on_the_fly'
             ),
-        )
+        )        
+        if t_start is not None or t_stop is not None:
+            print("Subsetting recording...")
+            recording = recording.frame_slice(start_frame=int(t_start * recording.get_sampling_frequency()), end_frame=int(t_stop * recording.get_sampling_frequency()))
+            sorting = sorting.frame_slice(start_frame=int(t_start * sorting.get_sampling_frequency()), end_frame=int(t_stop * sorting.get_sampling_frequency()))
+            #
         return Dataset(recording=recording, sorting_true=sorting)

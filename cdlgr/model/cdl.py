@@ -13,8 +13,10 @@ class CDL:
         print("Running CDL...")
         self.num_iterations = self.config["model"]["cdl"]["num_iterations"]
         self.interpolate = self.config["model"]["cdl"]["interpolate"]
+        self.channel = self.config["dataset"]["channel"]
         # traces = self.dictionary.dataset.recording.get_traces()[920:15000, 0]
-        traces = self.dictionary.dataset.recording.get_traces()[1200:1800, 0]
+        # traces = self.dictionary.dataset.recording.get_traces()[1200:1800, 0]
+        traces = self.dictionary.dataset.recording.get_traces()[:, self.channel]
         
         self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol"]
         self.error_tol = self.config["model"]["cdl"]["error_tol"]
