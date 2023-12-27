@@ -31,10 +31,11 @@ class Dictionary:
 
         return arrindices
 
-    def update(self, y_seg_set, coeffs, interpolator=None, numOfiterations=1):
+    def update(self, y_seg_set, coeffs, interpolator=None):
         assert(len(y_seg_set.keys())==len(coeffs.keys())), "The dimension of data and coeff need to match"
 
         d = self.dictionary
+        print("Dictionary", d.shape)
 
         if len(interpolator)==0:
             interpolator={}
@@ -57,6 +58,7 @@ class Dictionary:
                 clen = slen + self.element_length - 1
 
                 numOfinterp = len(interpolator.keys())
+                print("numOfinterp", numOfinterp)
 
                 coeffs_seg = {}
                 filter_delay_indices = {}
@@ -65,6 +67,7 @@ class Dictionary:
                     coeffs_seg[fidx] = {'idx':np.array([], dtype=int), 'amp':np.array([])}
                     dense_code = np.zeros(clen)
                     delay_indices = -np.ones(clen, dtype=int)
+
 
                     for interp_idx in range(numOfinterp):
                         j = fidx * numOfinterp + interp_idx
@@ -101,9 +104,9 @@ class Dictionary:
                                 for i, (idx, amp) in enumerate(zip(coeffs_seg[fidx]['idx'], coeffs_seg[fidx]['amp'])):
                                     if (idx >= self.element_length-1 and idx <= slen-1):	# We don't want to use the templates at the boundary
                                         mtx = self.compute_interp_matrix(interpolator[filter_delay_indices[fidx][i]], self.element_length)
-                                        convolved_sig[idx : idx + self.dlen] += amp * np.matmul(mtx, d_updated[:, fidx])
+                                        convolved_sig[idx : idx + self.element_length] += amp * np.matmul(mtx, d_updated[:, fidx])
 
-                                residual -= convolved_sig[self.dlen-1:]
+                                residual -= convolved_sig[self.element_length-1:]
 
                         y_extracted_set[key] = residual[patch_indices].reshape((self.element_length,-1), order='F')
 
@@ -128,7 +131,7 @@ class Dictionary:
                             if abs(idx_1 - idx_2) < self.element_length:
                                 denominator += coeff_1 * coeff_2 * self.compute_diff_matrix(interpolator[delay_1], interpolator[delay_2], idx_1, idx_2, self.element_length)
 
-                elem = np.matmul(np.linalg.inv(denominator), numerator)
+                elem = np.matmul(np.linalg.pinv(denominator), numerator)
                 d_updated[:,base_fidx] = elem/np.linalg.norm(elem)
 
             else:
@@ -216,7 +219,7 @@ class Dictionary:
 
         interpolator = {}
         if numOfsubgrids<=1:
-            return interpolator
+            return self.dictionary, interpolator
 
         print("Interpolating with 1/{} sub-grid".format(numOfsubgrids))
 
@@ -231,7 +234,7 @@ class Dictionary:
 
         # Extra element is for the original template
         d_interpolated = np.zeros((numOfsamples, numOfelements*(numOfdelays+1)))
-        d_interpolated[:, np.arange(numOfelements)*(numOfdelays + 1)] = self.dictionary
+        d_interpolated[:, np.arange(numOfelements)*(numOfdelays + 1)] = self.dictionary.copy()
 
         # The first interpolator should be a shifted delta function (to produce the original element)
         delta_fn = np.zeros(numOfsamples)
@@ -273,15 +276,15 @@ class Dictionary:
             interpolator[didx] = f_interp
 
             for fidx in np.arange(numOfelements):
-                elem = d[:,fidx]
+                elem = self.dictionary[:,fidx]
                 d_interpolated[:, fidx*(numOfdelays+1)+didx] = scipy.signal.convolve(elem, f_interp, mode='same')
 
         if normalize:
             d_interpolated = d_interpolated/np.linalg.norm(d_interpolated, axis=0)
 
-        self.dictionary = d_interpolated
+        # self.dictionary = d_interpolated
 
-        return interpolator
+        return d_interpolated, interpolator
     
     def plot(self, save=False):
         plt.figure(figsize=(10,10))

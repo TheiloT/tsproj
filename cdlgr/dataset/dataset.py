@@ -12,7 +12,7 @@ class Dataset:
 def get_dataset(config: DictConfig):
     type_dataset = config["dataset"]["type"]
     if type_dataset == "spikeforest":
-        print(f"Loding dataset {config['dataset']['name']}/{config['dataset']['recording']}...")
+        print(f"Loading dataset {config['dataset']['name']}/{config['dataset']['recording']}...")
         if "uri" in config["dataset"]:
             uri = config["dataset"]["uri"]
             all_recordings = sf.load_spikeforest_recordings(uri)
