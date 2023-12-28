@@ -210,7 +210,7 @@ class CDL:
 
                 spikes_sorting.loc[k_idx] = [k, active_atoms[-1]]
                 
-            if (k < 10):
+            if (k_idx < 10):
                 plt.figure()
                 plt.plot(traces_seg[k][:], label="original")
                 plt.plot(reconstructed_final[k_idx, :], label="reconstructed")
