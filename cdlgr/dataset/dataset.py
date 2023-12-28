@@ -70,9 +70,9 @@ def get_dataset(config: DictConfig):
         #     sw.plot_spikes_on_traces(wv, channel_ids=[i for i in range(i*8, (i+1)*8)])
         #     import matplotlib.pyplot as plt
         #     plt.show()
-        sw.plot_spikes_on_traces(wv, channel_ids=[18])
-        import matplotlib.pyplot as plt
-        plt.show()
+        # sw.plot_spikes_on_traces(wv, channel_ids=[18])
+        # import matplotlib.pyplot as plt
+        # plt.show()
         
         return Dataset(recording=recording, sorting_true=sorting_true)
     
