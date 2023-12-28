@@ -4,7 +4,7 @@ dictionary:
   init_templates: "signal" # "real" "random" "signal"
 
 cdl:
-  num_iterations: 15
+  num_iterations: 5
   interpolate: 0 # should be even, 0 means no interpolation
   sparsity_tol: 1
   error_tol: 0.01

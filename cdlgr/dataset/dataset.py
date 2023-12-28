@@ -64,8 +64,8 @@ def get_dataset(config: DictConfig):
             recording = si.whiten(recording, int_scale=200,
                                   chunk_size=1000)
 
-        wv = si.extract_waveforms(recording, sorting_true, max_spikes_per_unit=2500,
-                                mode="memory")
+        # wv = si.extract_waveforms(recording, sorting_true, max_spikes_per_unit=2500,
+        #                         mode="memory")
         # for i in range(8):
         #     sw.plot_spikes_on_traces(wv, channel_ids=[i for i in range(i*8, (i+1)*8)])
         #     import matplotlib.pyplot as plt

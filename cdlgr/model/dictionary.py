@@ -18,6 +18,11 @@ class Dictionary:
         self.dictionary = np.random.rand(self.element_length, self.num_elements)
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
+    def save(self):
+        np.savez("dictionary.npz", dictionary=self.dictionary,
+                 true_dictionary=self.true_dictionary,
+                 fs=self.fs)
+
     def initialize(self):
         print("Initializing dictionary...")
 
