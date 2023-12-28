@@ -25,6 +25,20 @@ class Dictionary:
         wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500,
                                         mode="memory")
         templates = wv.get_all_templates()
+
+        # remove code duplication
+        self.true_dictionary = np.zeros_like(self.dictionary)
+        for i in range(templates.shape[0]):
+            # center with respect to the middle of the template
+            templates_center_idx = np.argmax(np.abs(templates[i, :, self.channel]))
+            half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
+            template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
+            if template_loc.shape[0] < self.element_length:
+                self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
+            else:
+                self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
+        self.true_dictionary /= np.linalg.norm(self.true_dictionary, axis=0)
+
         plt.figure(figsize=(10,5))
         for i in range(templates.shape[0]):
             plt.plot(templates[i, :, self.channel], label=f"Unit {i}")
@@ -36,7 +50,7 @@ class Dictionary:
         plt.legend()
         plt.savefig("templates-n.png")
 
-        if self.config["model"]["dictionary"]["init_real_templates"]:
+        if self.config["model"]["dictionary"]["init_templates"] == "real":
             print("Initializing dictionary with real templates...")
             for i in range(min(self.num_elements, templates.shape[0])):
                 # plt.plot(templates[i, :, 0])
@@ -50,6 +64,131 @@ class Dictionary:
 
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
+    
+    def recovery_error_interp(self, iteration, numOfsubgrids):
+        """
+
+        Compute the error between the corresponding columns of the two dictionaries.
+
+        Inputs
+        ======
+
+        dict1: dictionary 1
+        dict2: dictionary 2
+
+        Outputs
+        =======
+
+        err_distance: error distance between the filters
+
+        """
+        dict1 = self.true_dictionary
+        dict2 = self.dictionary
+
+        assert(np.shape(dict1)==np.shape(dict2)), "Dictionaries are of different dim!"
+        filternum = np.shape(dict1)[1]
+
+        offset = 5 # why 5?
+        offsets = np.arange(-offset,offset+1,dtype=int)
+
+        err_distance = np.zeros(filternum)
+
+        dict1 = dict1/np.linalg.norm(dict1, axis=0)
+        dict2 = dict2/np.linalg.norm(dict2, axis=0)
+
+        dico = Dictionary(self.dataset, self.config)
+        dico.dictionary = dict1
+        dict1_interpolated, _ = dico.interpolate(numOfsubgrids)
+        numOfinterp = int(dict1_interpolated.shape[1]/filternum)
+
+        plt.close('all')
+        plt.figure()
+        for i in np.arange(filternum):
+            for j in np.arange(numOfinterp):
+                plt.plot(dict1_interpolated[:,i*numOfinterp+j], label=f"True {i} {j}")
+            plt.plot(dict2[:,i], label=f"Estimated {i}", linewidth=4)
+            plt.legend()
+            plt.savefig(f"dictionary-i2-{iteration:03}-{i:03}.png")
+        plt.close('all')
+
+        indices = np.zeros(filternum, dtype=int)
+        for i in np.arange(filternum):
+            diff = 1
+            idx = 0
+            o_max = 0
+            for j in np.arange(numOfinterp):
+                temp = []
+                for o in offsets:
+                    temp.append(np.dot(np.roll(dict1_interpolated[:,i*numOfinterp+j],o),dict2[:,i]))
+
+                temp_diff = 1-np.power(np.max(temp), 2)
+
+                if temp_diff<diff:
+                    idx = j
+                    o_max = np.argmax(temp)
+                    diff = temp_diff
+
+            err_distance[i] = np.sqrt(diff)
+            indices[i] = idx
+
+            plt.figure(figsize=(10,5))
+            times = np.arange(dict2.shape[0])/self.fs
+            # plt.plot(times,dict1_interpolated[:,i*numOfinterp+idx], label="True")
+            plt.plot(times-idx/numOfinterp/self.fs,dict1_interpolated[:,i*numOfinterp+idx], label="True", marker='x')
+            plt.plot(times, dict2[:,i], label="Estimated", marker='+') 
+            plt.title(f"Element {i} - Error {err_distance[i]}")
+            plt.legend()
+            plt.savefig(f"dictionary-i-{iteration:03}-{i:03}.png")            
+        return err_distance, indices
+    
+    def recovery_error(self, iteration):
+
+        """
+        Compute the error between the corresponding columns of the two dictionaries.
+
+        Inputs
+        ======
+
+        dict1: dictionary 1
+        dict2: dictionary 2
+
+        Outputs
+        =======
+
+        err_distance: error distance between the filters
+
+        """
+        dict2 = self.dictionary
+        dict1 = self.true_dictionary
+
+        assert(np.shape(dict1)==np.shape(dict2)), "Dictionaries are of different dim!"
+        filternum = np.shape(dict1)[1]
+
+        err_distance = np.zeros(filternum)
+
+        dict1 = dict1/np.linalg.norm(dict1, axis=0)
+        dict2 = dict2/np.linalg.norm(dict2, axis=0)
+
+        for i in np.arange(filternum):
+            diff = 1-np.power(np.matmul(np.transpose(dict1[:,i]), dict2[:,i]),2)
+            # Numerical issue
+            if abs(diff)< 1e-6:
+                diff = 0
+
+            err_distance[i] = np.sqrt(diff)
+
+            plt.figure(figsize=(10,5))
+            plt.plot(dict1[:,i], label="True", marker='x')
+            plt.plot(dict2[:,i], label="Estimated", marker='+')
+            plt.title(f"Element {i} - Error {err_distance[i]}")
+            plt.legend()
+            plt.savefig(f"dictionary-{iteration:03}-{i:03}.png")            
+
+
+        return err_distance
+            
+    def normalize(self):
+        self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
    
     def getSignalIndices(self, dlen, indices):
         """

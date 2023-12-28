@@ -1,6 +1,7 @@
 from omegaconf import DictConfig, OmegaConf
 import spikeforest as sf
 import spikeinterface.full as si
+import spikeinterface.widgets as sw
 from dataclasses import dataclass
 from pprint import pprint
 
@@ -55,12 +56,24 @@ def get_dataset(config: DictConfig):
             sorting_true = sorting_true.frame_slice(start_frame=int(t_start * sorting_true.get_sampling_frequency()), end_frame=int(t_stop * sorting_true.get_sampling_frequency()))
             # sorting_true = si.SubSortingExtractor(sorting_true, start_frame=int(t_start * sorting_true.get_sampling_frequency()), end_frame=int(t_stop * sorting_true.get_sampling_frequency()))
 
+
         if config["dataset"]["preprocess"]:
             print("Preprocessing recording...")
             recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
             recording = si.common_reference(recording, reference='global')
-            recording = si.whiten(recording, int_scale=200)
+            recording = si.whiten(recording, int_scale=200,
+                                  chunk_size=1000)
 
+        wv = si.extract_waveforms(recording, sorting_true, max_spikes_per_unit=2500,
+                                mode="memory")
+        # for i in range(8):
+        #     sw.plot_spikes_on_traces(wv, channel_ids=[i for i in range(i*8, (i+1)*8)])
+        #     import matplotlib.pyplot as plt
+        #     plt.show()
+        sw.plot_spikes_on_traces(wv, channel_ids=[18])
+        import matplotlib.pyplot as plt
+        plt.show()
+        
         return Dataset(recording=recording, sorting_true=sorting_true)
     
     elif type_dataset == "synth":

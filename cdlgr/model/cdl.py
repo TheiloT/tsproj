@@ -5,6 +5,7 @@ import spikeinterface.full as si
 from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from cdlgr.model.dictionary import Dictionary
 import spikeinterface.comparison as sc
+import spikeinterface.widgets as sw
 import pandas as pd
 from tqdm import tqdm
 import warnings
@@ -13,6 +14,12 @@ class CDL:
     def __init__(self, dictionary, config):
         self.config = config
         self.dictionary: Dictionary = dictionary
+
+        self.num_iterations = self.config["model"]["cdl"]["num_iterations"]
+        self.interpolate = self.config["model"]["cdl"]["interpolate"]
+        
+        self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol"]
+        self.error_tol = self.config["model"]["cdl"]["error_tol"]
 
     def split_traces(self):
         print("Splitting traces...")                
@@ -55,21 +62,29 @@ class CDL:
                     traces_seg[idx][:] = traces[peak_idx - half_size : peak_idx + half_size]
                 plt.plot(traces_seg[idx][:])
             plt.savefig("traces_seg.png")
+
+            # initial dictionary with atoms around peaks
+            if self.config["model"]["dictionary"]["init_templates"] == "signal":
+                for k in range(self.dictionary.num_elements):
+                    self.dictionary.dictionary[:, k] = traces[peaks.sample_index.values[k]-self.dictionary.element_length//2:
+                                                peaks.sample_index.values[k]+self.dictionary.element_length//2+1]
+             
+                self.dictionary.normalize()
         else:
             traces_seg = {}
             traces_seg[0] = traces
             warnings.warn("Performance evaluation only works with window split")
             input()
 
+        
+
         return traces_seg
 
     def run(self, traces_seg):
-        print("Running CDL...")
-        self.num_iterations = self.config["model"]["cdl"]["num_iterations"]
-        self.interpolate = self.config["model"]["cdl"]["interpolate"]
-        
-        self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol"]
-        self.error_tol = self.config["model"]["cdl"]["error_tol"]
+        print("Running CDL...")       
+
+        self.dictionary.recovery_error(-1)
+        self.dictionary.recovery_error_interp(-1, self.interpolate)
         # exit()
 
         for i in range(self.num_iterations):
@@ -85,16 +100,18 @@ class CDL:
                         traces_seg[j], interpolated_dict, sparsity=None, boundary=True
                     ), interpolated_dict
                 )
-            print(sparse_coeffs)
+            # print(sparse_coeffs)
             if i != self.num_iterations - 1:
-                self.dictionary.update(traces_seg, sparse_coeffs, interpolator)
+                self.dictionary.update(traces_seg, sparse_coeffs, interpolator)   
+                error = self.dictionary.recovery_error(i)
+                error2 = self.dictionary.recovery_error_interp(i, self.interpolate)
+                print("Dictionary error ", error, error2)
 
         self.reconstruct(traces_seg, sparse_coeffs, interpolated_dict)
 
     def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict):
         # assert self.interpolate == 0, "Reconstruction only works for non-interpolated dictionaries"
         
-
         spikes = pd.DataFrame(self.dictionary.dataset.sorting_true.to_spike_vector(concatenated=True))
         total_number_of_spikes = spikes.shape[0]
         stat_per_unit = {}
@@ -115,7 +132,6 @@ class CDL:
         
         print(spikes)
         print(traces_seg.keys())
-        print(get_unit(170))
 
         for unit in np.unique(spikes.unit_index.values):
             stat_per_unit[unit] = {"tp": 0, "fp": 0, "fn": 0}
@@ -130,14 +146,23 @@ class CDL:
         N_seg = len(traces_seg.keys())
         seg_size = traces_seg[list(traces_seg.keys())[0]].shape[0]
         print(N_seg, seg_size)
+        print(interpolated_dict.shape)
         reconstructed = np.zeros((N_seg, seg_size + interpolated_dict.shape[0] - 1))
         reconstructed_final = np.zeros((N_seg, seg_size))
         for k_idx, k in enumerate(sparse_coeffs.keys()): 
             active_i = []
             for i in sparse_coeffs[k].keys():            
                 for j, idx in enumerate(sparse_coeffs[k][i]["idx"]):
+                    if idx > seg_size:
+                        warnings.warn(f"idx {idx} larger than seg_size {seg_size}")
+                        continue
                     if i not in active_i:
-                        active_i.append(i)
+                        active_i.append(i)                        
+                    print((sparse_coeffs[k][i]["amp"][j] * interpolated_dict[:, i]).shape)
+                    print(k_idx, idx, idx + len(interpolated_dict[:, i]))
+                    print(reconstructed.shape)
+                    print(interpolated_dict.shape)
+                    print(reconstructed[k_idx, idx : idx + len(interpolated_dict[:, i])].shape)
                     reconstructed[k_idx, idx : idx + len(interpolated_dict[:, i])] += (
                         sparse_coeffs[k][i]["amp"][j] * interpolated_dict[:, i]
                     )
@@ -152,9 +177,9 @@ class CDL:
 
                 spikes_sorting.loc[k_idx] = [k, active_atoms[-1]]
 
-            unit = get_unit(k)
-            if unit in active_atoms:
-                stat_per_unit[unit]["tp"] += 1
+            # unit = get_unit(k)
+            # if unit in active_atoms:
+            #     stat_per_unit[unit]["tp"] += 1
                 
             plt.figure()
             plt.plot(traces_seg[k][:], label="original")
@@ -175,6 +200,7 @@ class CDL:
         cmp = sc.compare_sorter_to_ground_truth(self.dictionary.dataset.sorting_true, sorting_cdlgr, exhaustive_gt=True)
         print(cmp.get_confusion_matrix())
         cmp.print_summary()
+        cmp.print_performance()
         # reconstructed = np.zeros(traces.shape[0] + interpolated_dict.shape[0] - 1)
         # print(reconstructed.shape)
         # for j, idx in enumerate(sparse_coeffs[i]["idx"]):
@@ -190,8 +216,20 @@ class CDL:
         import seaborn as sns
         ax1 = sns.swarmplot(data=perf2, x='measurement', y='value', ax=ax1)
         ax1.set_xticklabels(labels=ax1.get_xticklabels(), rotation=45)
-        plt.show()
+        fig1.tight_layout()
+        fig1.savefig("perf.png")
 
+        plt.figure()
+        sw.plot_agreement_matrix(cmp, ordered=True)
+        plt.tight_layout()
+        plt.savefig("agreement_matrix.png")
+
+        plt.figure()
+        sw.plot_confusion_matrix(cmp)
+        plt.tight_layout()
+        plt.savefig("confusion_matrix.png")
+
+        # optimization: add term to have different templates
 
         # reconstructed = reconstructed[interpolated_dict.shape[0] - 1:]
         
