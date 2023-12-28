@@ -2,28 +2,66 @@ import numpy as np
 import scipy
 from matplotlib import pyplot as plt
 import spikeinterface.full as si
+from spikeinterface.sortingcomponents.peak_detection import detect_peaks
 from cdlgr.model.dictionary import Dictionary
+import pandas as pd
+from tqdm import tqdm
 
 class CDL:
     def __init__(self, dictionary, config):
         self.config = config
         self.dictionary: Dictionary = dictionary
 
-    def run(self):
+    def split_traces(self):
+        print("Splitting traces...")                
+        self.channel = self.config["dataset"]["channel"]
+
+        traces = self.dictionary.dataset.recording.get_traces()[:, self.channel]
+        
+        plt.figure()
+        plt.plot(traces)
+        plt.savefig("traces.png")
+
+        peaks = detect_peaks(self.dictionary.dataset.recording,
+                             random_chunk_kwargs={'chunk_size':min(10000, 
+                                            self.dictionary.dataset.recording.get_num_frames() - 5)})#, detect_threshold=5, n_shifts=5, peak_span_ms=0.5, peak_span_samples=None, filter=None, filter_kwargs=None, return_idxs=True, return_times=False, return_peak_span=False, return_channel_idxs=False, verbose=False
+
+        peaks = pd.DataFrame(peaks)
+        peaks = peaks[peaks["channel_index"] == self.channel]
+        # peaks["sample_index"] = peaks["sample_index"].astype(int)
+        print(peaks.shape)
+        print(peaks)
+
+        peak_size = 150 # even
+        half_size = peak_size // 2
+        traces_seg = np.zeros((peaks.shape[0], peak_size))
+        print(traces_seg.shape)
+        plt.figure()
+        for i, (_, peak) in enumerate(peaks.iterrows()):
+            peak_idx = int(peak["sample_index"])
+            print(peak_idx)
+            if peak_idx - half_size < 0:
+                traces_seg[i, half_size - peak_idx:] = traces[:peak_idx + half_size]
+            elif peak_idx + half_size > traces.shape[0]:
+                traces_seg[i, :traces.shape[0] - (peak_idx - half_size)] = traces[peak_idx - half_size:]
+            else:
+                traces_seg[i, :] = traces[peak_idx - half_size : peak_idx + half_size]
+            plt.plot(traces_seg[i, :])
+        plt.savefig("traces_seg.png")
+
+        return traces_seg
+
+    def run(self, traces_seg):
         print("Running CDL...")
         self.num_iterations = self.config["model"]["cdl"]["num_iterations"]
         self.interpolate = self.config["model"]["cdl"]["interpolate"]
-        self.channel = self.config["dataset"]["channel"]
-        # traces = self.dictionary.dataset.recording.get_traces()[920:15000, 0]
-        # traces = self.dictionary.dataset.recording.get_traces()[1200:1800, 0]
-        traces = self.dictionary.dataset.recording.get_traces()[:, self.channel]
         
         self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol"]
         self.error_tol = self.config["model"]["cdl"]["error_tol"]
 
-        plt.figure()
-        plt.plot(traces)
-        plt.savefig("traces.png")
+        traces_seg_dict = {}
+        for j in range(traces_seg.shape[0]):
+            traces_seg_dict[j] = traces_seg[j, :]
 
         for i in range(self.num_iterations):
             print(f"Iteration {i+1}/{self.num_iterations}")
@@ -31,37 +69,54 @@ class CDL:
             interpolated_dict, interpolator = self.dictionary.interpolate(self.interpolate, kind='sinc')
             print(interpolated_dict.shape)
             # sparse_coeffs = self.csc(traces, self.dictionary.dictionary, sparsity=None, boundary=False)
-            sparse_coeffs = self.code_sparse(
-                self.csc_old(
-                    traces, interpolated_dict, sparsity=None, boundary=False
-                ), interpolated_dict
-            )
+            sparse_coeffs = {}
+            for j in tqdm(range(traces_seg.shape[0])):
+                sparse_coeffs[j] = self.code_sparse(
+                    self.csc_old(
+                        traces_seg[j, :], interpolated_dict, sparsity=None, boundary=False
+                    ), interpolated_dict
+                )
             print(sparse_coeffs)
             if i != self.num_iterations - 1:
-                self.dictionary.update({0: traces}, {0: sparse_coeffs}, interpolator)
+                self.dictionary.update(traces_seg_dict, sparse_coeffs, interpolator)
 
-        self.reconstruct(traces, sparse_coeffs, interpolated_dict)
+        self.reconstruct(traces_seg, sparse_coeffs, interpolated_dict)
 
-    def reconstruct(self, traces, sparse_coeffs, interpolated_dict):
+    def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict):
         # assert self.interpolate == 0, "Reconstruction only works for non-interpolated dictionaries"
 
-        reconstructed = np.zeros(traces.shape[0] + interpolated_dict.shape[0] - 1)
-        print(reconstructed.shape)
-        for i in sparse_coeffs.keys():
-            for j, idx in enumerate(sparse_coeffs[i]["idx"]):
-                print(idx, idx + len(interpolated_dict[:, i]))
+        reconstructed = np.zeros((traces_seg.shape[0], traces_seg.shape[1] + interpolated_dict.shape[0] - 1))
+        reconstructed_final = np.zeros((traces_seg.shape[0], traces_seg.shape[1]))
+        for k in sparse_coeffs.keys():    
+            for i in sparse_coeffs[k].keys():            
+                for j, idx in enumerate(sparse_coeffs[k][i]["idx"]):
+                    reconstructed[k, idx : idx + len(interpolated_dict[:, i])] += (
+                        sparse_coeffs[k][i]["amp"][j] * interpolated_dict[:, i]
+                    )
+            reconstructed_final[k, :] = reconstructed[k, :][interpolated_dict.shape[0] - 1:]
                 
-                reconstructed[idx : idx + len(interpolated_dict[:, i])] += (
-                    (sparse_coeffs[i]["amp"][j] * interpolated_dict[:, i])#[:traces.shape[0] - idx]
-                )
+            plt.figure()
+            plt.plot(traces_seg[k, :], label="original")
+            plt.plot(reconstructed_final[k, :], label="reconstructed")
+            plt.legend()
+            plt.savefig(f"reconstructed_{k}.png")
+            plt.close()
+        # reconstructed = np.zeros(traces.shape[0] + interpolated_dict.shape[0] - 1)
+        # print(reconstructed.shape)
+        # for j, idx in enumerate(sparse_coeffs[i]["idx"]):
+        #     print(idx, idx + len(interpolated_dict[:, i]))
+            
+        #     reconstructed[idx : idx + len(interpolated_dict[:, i])] += (
+        #         (sparse_coeffs[i]["amp"][j] * interpolated_dict[:, i])#[:traces.shape[0] - idx]
+        #     )
 
-        reconstructed = reconstructed[interpolated_dict.shape[0] - 1:]
+        # reconstructed = reconstructed[interpolated_dict.shape[0] - 1:]
         
-        plt.figure()
-        plt.plot(traces, label="original")
-        plt.plot(reconstructed, label="reconstructed")
-        plt.legend()
-        plt.savefig("reconstructed.png")
+        # plt.figure()
+        # plt.plot(traces, label="original")
+        # plt.plot(reconstructed, label="reconstructed")
+        # plt.legend()
+        # plt.savefig("reconstructed.png")
 
         return reconstructed
 

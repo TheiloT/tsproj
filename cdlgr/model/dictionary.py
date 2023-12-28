@@ -2,10 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 import spikeinterface.full as si
+from cdlgr.dataset.dataset import Dataset
 
 class Dictionary:
     def __init__(self, dataset, config):
-        self.dataset = dataset
+        self.dataset: Dataset = dataset
         self.config = config
 
         self.fs = dataset.recording.get_sampling_frequency()
