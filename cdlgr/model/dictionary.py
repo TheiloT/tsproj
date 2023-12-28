@@ -14,6 +14,7 @@ class Dictionary:
         self.num_elements = config["model"]["dictionary"]["num_elements"]
 
         print(f"Creating dictionary with {self.num_elements} elements of length {self.element_length} samples ({self.element_length/self.fs*1000} ms).")
+        np.random.seed(0)
         self.dictionary = np.random.rand(self.element_length, self.num_elements)
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
@@ -66,7 +67,7 @@ class Dictionary:
         assert(len(y_seg_set.keys())==len(coeffs.keys())), "The dimension of data and coeff need to match"
 
         d = self.dictionary
-        print("Dictionary", d.shape)
+        # print("Dictionary", d.shape)
 
         if len(interpolator)==0:
             interpolator={}
