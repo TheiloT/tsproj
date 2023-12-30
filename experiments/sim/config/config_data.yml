@@ -22,9 +22,17 @@ endtime_noise: 2.45
 # external mode
 noise: 0.1
 
-
+# Noise configuration
 noise_start: 0.1
 noise_end: 0.1
 noise_step: 1
-T: 3
+
 numOftrials: 1
+
+T: 3
+
+# Events configuration
+numSources: 2
+filter_length: 0.001
+amps: [1, 2]
+numOfevents: 50

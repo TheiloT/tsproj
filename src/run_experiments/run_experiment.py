@@ -113,6 +113,7 @@ def train(folder_name):
                             config_m,
                             indices=indices)
 
+
 @run_experiment.command()
 @click.option("--folder_name", default="", help="folder name in experiment directory")
 def predict(folder_name):
@@ -202,6 +203,67 @@ def predict(folder_name):
 
 
 @run_experiment.command()
+def generate_simulated_dataset():
+    folder_name = 'sim'
+    
+    ####################################
+    # load data parameters
+    print("load data parameters.")
+    filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_data.yml')
+    file = open(filename, "rb")
+    config_d = yaml.safe_load(file)
+    file.close()
+
+    ####################################
+    # Generate data
+    ####################################
+    # Noise
+    noise_vars = np.arange(config_d['noise_start'], config_d['noise_end']+config_d['noise_step']-0.001, config_d['noise_step'])
+    noise_vars = [round(noise,3) for noise in noise_vars]
+    print(noise_vars)
+    ####################################
+    # load data
+    print("Generate train data.")
+    fs = config_d['Fs']
+    amps = config_d['amps']
+    numOfevents = config_d['numOfevents']
+    T = config_d['T']
+
+    # Pre-defined dictionary for now
+    factor = 10/config_d['filter_length']
+    dictionary = {}
+    dictionary[0] = lambda x: (factor*x)*np.exp(-(factor*x)**2)*np.cos(2*np.pi*(factor*x)/4)
+    dictionary[1] = lambda x: (factor*x)*np.exp(-(factor*x)**2)
+
+
+    for noisevar in noise_vars:
+        print("Noise ", noisevar)
+        for i in np.arange(config_d['numOftrials']):
+            print("Iteration ",i)
+
+            print("Generating data")
+            truth, event_indices = generate_Simulated_continuous(numOfevents, T, fs, dictionary, config_d['filter_length'], amps)
+            print("Iteration ",i, " Truth shape ", truth.shape)
+            signal = truth + noisevar*np.random.randn(T*fs)
+
+            print("Saving data to", folder_name)
+            filename = os.path.join(PATH, 'experiments', folder_name, 'data','T_{}_noise_{}_num_{}_{}.hdf5'.format(T,noisevar, config_d['numOfevents'], i))
+            with h5py.File(filename,'w') as f:
+                # dset = f.create_dataset("data", data = signal[:-1])
+                dset = f.create_dataset("data", data = signal)
+                dset.attrs['fs'] = fs
+                dset.attrs['T'] = config_d['T']
+                dset.attrs['numSources'] = config_d['numSources']
+                dset.attrs['numOfevents'] = config_d['numOfevents']
+                dset.attrs['indices'] = event_indices
+                dset.attrs['noisevar'] = noisevar
+                dset.attrs['amps'] = amps
+                dset.attrs['filter_length'] = config_d['filter_length']
+
+    print("Data generated")
+    
+
+@run_experiment.command()
 @click.option("--folder_name", default="", help="folder name in experiment directory")
 def train_simulation(folder_name):
 
@@ -259,7 +321,7 @@ def train_simulation(folder_name):
             realization={}
 
             print("Generating data")
-            truth, event_indices = generate_Simulated_continuous(numOfevents, T, fs, dictionary ,filter_length, amps)
+            truth, event_indices = generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length, amps)
             print("Iteration ",i, " Truth shape ", truth.shape)
             signal = truth + noisevar*np.random.randn(T*fs)
 
@@ -268,6 +330,7 @@ def train_simulation(folder_name):
             with h5py.File(filename,'w') as f:
                 # dset = f.create_dataset("data", data = signal[:-1])
                 dset = f.create_dataset("data", data = signal)
+                dset.attrs['noisevar'] = noisevar
                 dset.attrs['fs'] = fs
                 dset.attrs['T'] = config_d['T']
                 dset.attrs['numOfevents'] = config_m['numOfevents']

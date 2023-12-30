@@ -53,23 +53,36 @@ def display_results(folder_name):
 	file.close()
 
 	####################################
-	# load results
+	# load train results
 	print("load results")
 	filename = os.path.join(PATH, 'experiments', folder_name, 'results','results_train')
 	file = open(filename, "rb")
-	results = pickle.load(file)
+	results_train = pickle.load(file)
+	file.close()
+ 
+ 	####################################
+	# load test results
+	print("load results")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'results','results_test')
+	file = open(filename, "rb")
+	results_test = pickle.load(file)
 	file.close()
 
 	####################################
-	if 'init_d' not in results:
+	if 'init_d' not in results_train:
 		init_d = None
 	else:
-		init_d = results['init_d']
+		init_d = results_train['init_d']
 
-	drawFilters(results['d'], init_d)
+	drawFilters(results_train['d'], init_d)
 
-	if 'd_distance' in results:
-		drawDictError(results['d_distance'])
+	if 'd_distance' in results_train:
+		drawDictError(results_train['d_distance'])
+  
+	drawCodeDistribution(results_test['code'])
+ 
+	# drawReconstructed()
+ 
 	plt.show()
 
 
@@ -317,86 +330,86 @@ def display_spikesorting_errorcurve():
 
 
 
-# @extract_results.command()
-# @click.argument("keys",nargs=-1)
-# @click.option("--folder_name", default="", help="folder name in experiment directory")
-# def display_reconstruct(folder_name, keys):
-# 	"""
-# 	Reconstruct based on CSC/CDL result
-#
-# 	Inputs
-# 	======
-# 	keys: array_like. index of windows for signal reconstruction
-#
-# 	"""
-#
-# 	seg = []
-# 	for key in keys:
-# 		seg.append(int(float(key)))
-#
-# 	####################################
-# 	# load model parameters
-# 	print("load model parameters.")
-# 	filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_model.yml')
-# 	file = open(filename, "rb")
-# 	config_m = yaml.safe_load(file)
-# 	file.close()
-#
-# 	####################################
-# 	# load data parameters
-# 	print("load data parameters.")
-# 	filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_data.yml')
-# 	file = open(filename, "rb")
-# 	config_d = yaml.safe_load(file)
-# 	file.close()
-#
-# 	####################################
-# 	# load results
-#
-# 	print("load CDL results")
-# 	filename = os.path.join(PATH, 'experiments', folder_name, 'results','results_train')
-# 	file = open(filename, "rb")
-# 	results = pickle.load(file)
-# 	file.close()
-#
-# 	d = results['d']
-#
-# 	print("load CSC results")
-# 	filename = os.path.join(PATH, 'experiments', folder_name, 'results','results_test')
-# 	file = open(filename, "rb")
-# 	results = pickle.load(file)
-# 	file.close()
-#
-# 	code = results['code']
-#
-# 	####################################
-# 	# load data
-# 	data_type='test'
-# 	y_test, y_test_idx, noise = preprocessData(folder_name, config_d, data_type)
-#
-# 	####################################
-# 	# Reconstruct signals
-# 	reconstructed = {}
-# 	for key in seg:
-# 		slen = len(y_test[key])
-# 		convolved_signal = reconstruct(d, code[key], slen)
-# 		reconstructed[key] = convolved_signal
-#
-# 	####################################
-# 	# load ground truth (For now, support only peaks)
-# 	print("Load truth")
-# 	filename = os.path.join(PATH, 'experiments', folder_name, 'data/truth.mat')
-# 	mat = loadmat(filename)
-# 	true_timestamps = mat['true_ts'].flatten()
-#
-# 	truth = {}
-# 	for key in seg:
-# 		timestamps = y_test_idx[key]
-# 		truth_ts = true_timestamps[(timestamps[0] < true_timestamps) & (true_timestamps <= timestamps[-1])]
-# 		truth[key] = truth_ts -timestamps[0]
-#
-# 	drawReconstructed(reconstructed, y_test, y_test_idx, truth)
-# 	plt.show()
+@extract_results.command()
+@click.argument("keys",nargs=-1)
+@click.option("--folder_name", default="", help="folder name in experiment directory")
+def display_reconstruct(folder_name, keys):
+	"""
+	Reconstruct based on CSC/CDL result
+
+	Inputs
+	======
+	keys: array_like. index of windows for signal reconstruction
+
+	"""
+
+	seg = []
+	for key in keys:
+		seg.append(int(float(key)))
+
+	####################################
+	# load model parameters
+	print("load model parameters.")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_model.yml')
+	file = open(filename, "rb")
+	config_m = yaml.safe_load(file)
+	file.close()
+
+	####################################
+	# load data parameters
+	print("load data parameters.")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'config','config_data.yml')
+	file = open(filename, "rb")
+	config_d = yaml.safe_load(file)
+	file.close()
+
+	####################################
+	# load results
+
+	print("load CDL results")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'results','results_train')
+	file = open(filename, "rb")
+	results = pickle.load(file)
+	file.close()
+
+	d = results['d']
+
+	print("load CSC results")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'results','results_test')
+	file = open(filename, "rb")
+	results = pickle.load(file)
+	file.close()
+
+	code = results['code']
+
+	####################################
+	# load data
+	data_type='test'
+	y_test, y_test_idx, noise = preprocessData(folder_name, config_d, data_type)
+
+	####################################
+	# Reconstruct signals
+	reconstructed = {}
+	for key in seg:
+		slen = len(y_test[key])
+		convolved_signal = reconstruct(d, code[key], slen)
+		reconstructed[key] = convolved_signal
+
+	####################################
+	# load ground truth (For now, support only peaks)
+	print("Load truth")
+	filename = os.path.join(PATH, 'experiments', folder_name, 'data/truth.mat')
+	mat = loadmat(filename)
+	true_timestamps = mat['true_ts'].flatten()
+
+	truth = {}
+	for key in seg:
+		timestamps = y_test_idx[key]
+		truth_ts = true_timestamps[(timestamps[0] < true_timestamps) & (true_timestamps <= timestamps[-1])]
+		truth[key] = truth_ts -timestamps[0]
+
+	drawReconstructed(reconstructed, y_test, y_test_idx, truth)
+	plt.show()
 
 
 if __name__=="__main__":
