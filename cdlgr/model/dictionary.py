@@ -22,9 +22,12 @@ class Dictionary:
         print("Initializing dictionary...")
 
         self.channel = self.config["dataset"]["channel"]
-        wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500,
+        length_ms = self.config["dataset"].get("sources", {}).get("length_ms", None)
+        ms_before = length_ms/2 if length_ms is not None else 1.0
+        ms_after = length_ms/2 if length_ms is not None else 2.0
+        wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500, ms_before=ms_before, ms_after=ms_after,
                                         mode="memory")
-        templates = wv.get_all_templates()
+        templates = wv.get_all_templates()  # Shape (num_units, num_samples, num_channels)
 
         # remove code duplication
         self.true_dictionary = np.zeros_like(self.dictionary)

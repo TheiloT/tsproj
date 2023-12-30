@@ -32,7 +32,8 @@ class CDL:
         plt.savefig("traces.png")
 
         if self.config["dataset"]["window"]["split"]:
-            peaks = detect_peaks(self.dictionary.dataset.recording,
+            detect_threshold = self.config["dataset"]["gen"]["amps"][0] if (self.config["dataset"]["type"] == "synth") else 5
+            peaks = detect_peaks(self.dictionary.dataset.recording, detect_threshold=detect_threshold,
                                 random_chunk_kwargs={'chunk_size':min(10000, 
                                                 self.dictionary.dataset.recording.get_num_frames() - 5)})#, detect_threshold=5, n_shifts=5, peak_span_ms=0.5, peak_span_samples=None, filter=None, filter_kwargs=None, return_idxs=True, return_times=False, return_peak_span=False, return_channel_idxs=False, verbose=False
 
