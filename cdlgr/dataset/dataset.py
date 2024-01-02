@@ -85,12 +85,14 @@ def get_dataset(config: DictConfig):
                 strategy='on_the_fly'
             ),
         )        
-        if t_start is not None or t_stop is not None:
-            print("Subsetting recording...")
-            recording = recording.frame_slice(start_frame=int(t_start * recording.get_sampling_frequency()), end_frame=int(t_stop * recording.get_sampling_frequency()))
-            sorting = sorting.frame_slice(start_frame=int(t_start * sorting.get_sampling_frequency()), end_frame=int(t_stop * sorting.get_sampling_frequency()))
-            
-        return Dataset(recording=recording, sorting_true=sorting)
+        # if t_start is not None or t_stop is not None:
+        #     print("Subsetting recording...")
+        #     recording = recording.frame_slice(start_frame=int(t_start * recording.get_sampling_frequency()), end_frame=int(t_stop * recording.get_sampling_frequency()))
+        #     sorting = sorting.frame_slice(start_frame=int(t_start * sorting.get_sampling_frequency()), end_frame=int(t_stop * sorting.get_sampling_frequency()))
+        recording_test, sorting_test = subset_data(recording, sorting, t_start_test, t_stop_test, "test")
+        recording, sorting_true = subset_data(recording, sorting, t_start, t_stop, "training")
+
+        return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
     
 def subset_data_slice(data, t_start, t_stop, message):
     if t_start is not None or t_stop is not None:

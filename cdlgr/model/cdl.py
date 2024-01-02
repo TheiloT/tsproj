@@ -24,6 +24,7 @@ class CDL:
         self.error_tol = self.config["model"]["cdl"]["error_tol"]
 
     def split_traces(self):
+        time_preprocessing_begin = perf_counter()
         print("Splitting traces...")                
         self.channel = self.config["dataset"]["channel"]
 
@@ -91,7 +92,9 @@ class CDL:
             warnings.warn("Performance evaluation only works with window split")
             input()
 
-        
+        time_preprocessing_end = perf_counter()
+        print("Preprocessing time: ", time_preprocessing_end - time_preprocessing_begin)
+        np.savetxt("time_preprocessing.txt", [time_preprocessing_end - time_preprocessing_begin], fmt="%f")
 
         return traces_seg
     
@@ -180,6 +183,9 @@ class CDL:
                              self.dictionary.dataset.sorting_true_test,
                              "whole",
                              "test")
+            
+            self.save_coeffs(sparse_coeffs, "test")
+            np.savetxt("time_test.txt", [time_diff], fmt="%f")
 
     def run_csc(self, traces_seg):
         time_csc_begin = perf_counter()
@@ -194,7 +200,7 @@ class CDL:
         time_csc_end = perf_counter()
         return sparse_coeffs, interpolated_dict, interpolator, time_csc_end - time_csc_begin
 
-    def save_coeffs(self, sparse_coeffs):
+    def save_coeffs(self, sparse_coeffs, mode='train'):
         sp = {}
         for k in sparse_coeffs.keys():
             k_key = str(k)
@@ -203,7 +209,7 @@ class CDL:
                 i_key = str(i)
                 sp[k_key][i_key] = {"idx": sparse_coeffs[k][i]["idx"].tolist(), "amp": sparse_coeffs[k][i]["amp"].tolist()}
 
-        with open("sparse_coeffs.json", "w") as f:
+        with open(f"sparse_coeffs-{mode}.json", "w") as f:
             json.dump(sp, f, indent=4)
 
     def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict, sorting_true, mode="split", label="train"):       
@@ -278,13 +284,26 @@ class CDL:
                     #     plt.show()
                     spikes_sorting.loc[len(spikes_sorting)] = [idxes[idx]-self.dictionary.element_length//2, active_atoms[-1], amps[idx], error]
                 
-            if (k_idx < 10):
+            spike_idx = spikes_sorting["sample_index"].values[-1]
+            min_diff = np.inf
+            min_diff_unit = None
+            for unit in sorting_true.unit_ids:
+                spikes_idxes = sorting_true.get_unit_spike_train(unit_id=unit)
+                min_diff_true = np.abs(spikes_idxes - spike_idx).min()
+                if min_diff_true < min_diff:
+                    min_diff = min_diff_true
+                    min_diff_unit = unit
+                    
+            if (k_idx < 10) or min_diff > 15:
+
                 plt.close('all')
                 plt.figure()
-                plt.plot(traces_seg[k][:], label="original")
-                plt.plot(reconstructed_final[k_idx, :], label="reconstructed")
+                plt.plot(traces_seg[k][:], label="original", marker="x")
+                plt.plot(reconstructed_final[k_idx, :], label="reconstructed", marker="+")
+                plt.xlabel("Sample")
+                plt.ylabel("Amplitude (a. u.)")
                 plt.legend()
-                plt.title(f"Active filters: {active_atoms} - interpolated {active_i}")
+                plt.title(f"Active filters: {active_atoms} - interpolated {active_i}, unit {min_diff_unit}: dist {min_diff}")
                 if len(traces_seg[k][:]) > 1000:
                     plt.show()
                 plt.savefig(f"reconstructed_{k_idx}_{k}_{label}.png")
@@ -299,22 +318,6 @@ class CDL:
         sub_spike_sortings = []
 
         if mode == "whole":
-            # dbscan for amplitudem select cluster with max amplitude
-            # from sklearn.cluster import HDBSCAN
-            # clustering = HDBSCAN().fit(spikes_sorting.amplitude.values.reshape(-1, 1))
-            # print(clustering.labels_)
-
-            # spikes_sorting["cluster"] = clustering.labels_
-
-            # plt.plot(spikes_sorting.cluster.values, spikes_sorting.amplitude.values, '.')
-            # plt.show()
-
-            # irow_amplitude_max = spikes_sorting.amplitude.argmax()
-            # cluster_amp_max = spikes_sorting.cluster.iloc[irow_amplitude_max]
-            # print(cluster_amp_max)
-            # spikes_sorting = spikes_sorting[spikes_sorting.cluster == cluster_amp_max]
-
-            # print(spikes_sorting)
             for unit in spikes_sorting.unit_index.unique():
                 sub_spike_sorting = spikes_sorting[spikes_sorting.unit_index == unit]
                 diffs = np.diff(sub_spike_sorting.amplitude.values)
@@ -324,12 +327,14 @@ class CDL:
 
                 rate = self.config["model"]["cdl"]["rel_amp_split_test"]
                 idx_amp_min = sub_spike_sorting.loc[sub_spike_sorting["diff"] > rate, "amplitude"].max()
+                if np.isnan(idx_amp_min):
+                    idx_amp_min = 0
                 sub_spike_sorting = sub_spike_sorting[sub_spike_sorting["amplitude"] > idx_amp_min]
                 sub_spike_sortings.append(sub_spike_sorting)
 
             print(spikes_sorting.tail(50))
 
-            spikes_sorting = pd.concat(sub_spike_sortings)
+            spikes_sorting = pd.concat(sub_spike_sortings)            
 
         # spikes_sorting.drop(labels="amplitude", axis=1, inplace=True)
         spikes_sorting["sample_index"] = spikes_sorting["sample_index"].astype(int)
@@ -347,6 +352,33 @@ class CDL:
         print(cmp.get_confusion_matrix())
         cmp.print_summary()
         cmp.print_performance()
+
+        print(cmp.match_event_count)
+        print(cmp.match_score)
+
+        # print(sorting_cdlgr.get_unit_ids())
+        # print(sorting_true.get_unit_ids())
+        # for row in cmp.match_event_count.iterrows():
+        #     sorting_true_id = row[1].name
+        #     sorting_cdlgr_id = row[1].values.argmax()
+        #     print(row[1].name, row[1].values.argmax())
+        #     firings_cdlgr = sorting_cdlgr.get_unit_spike_train(sorting_cdlgr_id)
+        #     firings_true = sorting_true.get_unit_spike_train(sorting_true_id)
+        #     for firing_cdlgr in firings_cdlgr:
+        #         # find closest firings_true
+        #         idx = np.abs(firings_true - firing_cdlgr).argmin()
+        #         print(firings_true[idx], firing_cdlgr)
+        #         if np.abs(firings_true[idx] - firing_cdlgr) > 10:
+        #             # firings_true = np.delete(firings_true, idx)
+        #             print("Spike not matching")
+        #             template_true = sorting_true.get_all_templates([sorting_true_id])[0]
+
+        #             spikes_unit_cdlgr = pd.DataFrame(sorting_cdlgr.get_unit_spike_train(sorting_cdlgr_id))
+
+           
+            
+
+
         # reconstructed = np.zeros(traces.shape[0] + interpolated_dict.shape[0] - 1)
         # print(reconstructed.shape)
         # for j, idx in enumerate(sparse_coeffs[i]["idx"]):

@@ -141,7 +141,9 @@ class Dictionary:
             # plt.plot(times,dict1_interpolated[:,i*numOfinterp+idx], label="True")
             plt.plot(times-idx/numOfinterp/self.fs,dict1_interpolated[:,i*numOfinterp+idx], label="True", marker='x')
             plt.plot(times, dict2[:,i], label="Estimated", marker='+') 
-            plt.title(f"Element {i} - Error {err_distance[i]}")
+            plt.xlabel("Time")
+            plt.ylabel("Amplitude (normalized)")
+            plt.title(f"Element {i} - Error {err_distance[i]:.3f}")
             plt.legend()
             plt.savefig(f"dictionary-i-{iteration:03}-{i:03}.png")            
         return err_distance, indices

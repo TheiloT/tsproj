@@ -8,6 +8,6 @@ cdl:
   interpolate: 10 # should be even, 0 means no interpolation
   sparsity_tol: 1
   sparsity_tol_test: 40 # average spike rate # base it on the number of spikes in the test data OR a criteria on matching (amplitude not too high or low)
-  rel_amp_split_test: 0.4
+  rel_amp_split_test: 0.6
   error_tol: 0.01
   interpolator_type: sinc
