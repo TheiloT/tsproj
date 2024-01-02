@@ -26,7 +26,8 @@ def main(cfg: DictConfig):
 
     cdl = CDL(dictionary, cfg)
     traces_seg = cdl.split_traces()
-    cdl.run(traces_seg)
+    cdl.train(traces_seg)
+    cdl.test()
 
 
 

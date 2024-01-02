@@ -7,6 +7,9 @@ tstart_s:
 tstop_s:
 duration_s:
 
+tstart_test_s:
+tstop_test_s:
+
 channel: 0
 
 preprocess: true

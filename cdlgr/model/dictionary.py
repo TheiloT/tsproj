@@ -18,6 +18,11 @@ class Dictionary:
         self.dictionary = np.random.rand(self.element_length, self.num_elements)
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
+    def save(self):
+        np.savez("dictionary.npz", dictionary=self.dictionary,
+                 true_dictionary=self.true_dictionary,
+                 fs=self.fs)
+
     def initialize(self):
         print("Initializing dictionary...")
 
@@ -103,7 +108,7 @@ class Dictionary:
 
         dico = Dictionary(self.dataset, self.config)
         dico.dictionary = dict1
-        dict1_interpolated, _ = dico.interpolate(numOfsubgrids)
+        dict1_interpolated, _ = dico.interpolate(numOfsubgrids, kind=self.config["model"]["cdl"]["interpolator_type"])
         numOfinterp = int(dict1_interpolated.shape[1]/filternum)
 
         plt.close('all')
@@ -141,7 +146,9 @@ class Dictionary:
             # plt.plot(times,dict1_interpolated[:,i*numOfinterp+idx], label="True")
             plt.plot(times-idx/numOfinterp/self.fs,dict1_interpolated[:,i*numOfinterp+idx], label="True", marker='x')
             plt.plot(times, dict2[:,i], label="Estimated", marker='+') 
-            plt.title(f"Element {i} - Error {err_distance[i]}")
+            plt.xlabel("Time")
+            plt.ylabel("Amplitude (normalized)")
+            plt.title(f"Element {i} - Error {err_distance[i]:.3f}")
             plt.legend()
             plt.savefig(f"dictionary-i-{iteration:03}-{i:03}.png")            
         return err_distance, indices

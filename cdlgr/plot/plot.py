@@ -4,8 +4,10 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 def plot_preprocessed(dataset, config: DictConfig):
-    wv = si.extract_waveforms(dataset.recording, dataset.sorting_true, max_spikes_per_unit=2500,
-                             mode="memory")
+    if config["output"]["plot_traces"] or config["output"]["plot_waveforms"] or config["output"]["plot_snrs"]:
+        # to do avoid duplicated waveforms compute
+        wv = si.extract_waveforms(dataset.recording, dataset.sorting_true, max_spikes_per_unit=2500,
+                                mode="memory")
     if config["output"]["plot_traces"]: 
         # w = plot_traces(recording=dataset.recording, backend="matplotlib", time_range=[0, 10])
         si.plot_spikes_on_traces(

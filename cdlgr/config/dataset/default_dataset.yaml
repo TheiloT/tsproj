@@ -1,22 +1,14 @@
-# type: spikeforest
-# name:  hybrid_drift_tetrode
-# recording: "rec_4c_600s_11"
-# uri: sha1://43298d72b2d0860ae45fc9b0864137a976cb76e8?hybrid-janelia-spikeforest-recordings.json
-
-# type: synth
-# name:
-# recording:
-# uri:
-
 type: spikeforest
 name:  paired_mea64c
 recording: "20170622_patch2"
 uri: sha1://1d343ed7e876ffd73bd8e0daf3b8a2c4265b783c?spikeforest-recordings.json
 
-
-tstart_s: 0.4 #0.11
-tstop_s: 0.9 #0.3 #0.9
+tstart_s: 0 #0.4 #0.11
+tstop_s: 10 #2 #0.9 #0.9 #0.3 #0.9
 duration_s: 20
+
+tstart_test_s: 60 #3
+tstop_test_s: 63 #4
 
 channel: 18 #0
 

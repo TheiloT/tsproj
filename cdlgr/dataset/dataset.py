@@ -10,13 +10,18 @@ from pprint import pprint
 @dataclass
 class Dataset:
     recording: si.BaseRecording
+    recording_test: si.BaseRecording
     sorting_true: si.BaseSorting
+    sorting_true_test: si.BaseSorting
 
 def get_dataset(config: DictConfig):
     type_dataset = config["dataset"]["type"]
 
     t_start = config["dataset"]["tstart_s"]
     t_stop = config["dataset"]["tstop_s"]
+
+    t_start_test = config["dataset"]["tstart_test_s"]
+    t_stop_test = config["dataset"]["tstop_test_s"]
 
     if type_dataset == "spikeforest":
         print(f"Loading dataset {config['dataset']['name']}/{config['dataset']['recording']}...")
@@ -50,34 +55,6 @@ def get_dataset(config: DictConfig):
         print('X:', recording.get_channel_locations()[:, 0].T)
         print('Y:', recording.get_channel_locations()[:, 1].T)
 
-        if t_start is not None or t_stop is not None:
-            print("Subsetting recording...")
-            recording = recording.frame_slice(start_frame=int(t_start * recording.get_sampling_frequency()), end_frame=int(t_stop * recording.get_sampling_frequency()))
-            # recording = si.SubRecordingExtractor(recording, start_frame=int(t_start * recording.get_sampling_frequency()), end_frame=int(t_stop * recording.get_sampling_frequency()))
-            print("Subsetting sorting...")
-            sorting_true = sorting_true.frame_slice(start_frame=int(t_start * sorting_true.get_sampling_frequency()), end_frame=int(t_stop * sorting_true.get_sampling_frequency()))
-            # sorting_true = si.SubSortingExtractor(sorting_true, start_frame=int(t_start * sorting_true.get_sampling_frequency()), end_frame=int(t_stop * sorting_true.get_sampling_frequency()))
-
-
-        if config["dataset"]["preprocess"]:
-            print("Preprocessing recording...")
-            recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
-            recording = si.common_reference(recording, reference='global')
-            recording = si.whiten(recording, int_scale=200,
-                                  chunk_size=1000)
-
-        # wv = si.extract_waveforms(recording, sorting_true, max_spikes_per_unit=2500,
-        #                         mode="memory")
-        # for i in range(8):
-        #     sw.plot_spikes_on_traces(wv, channel_ids=[i for i in range(i*8, (i+1)*8)])
-        #     import matplotlib.pyplot as plt
-        #     plt.show()
-        # sw.plot_spikes_on_traces(wv, channel_ids=[18])
-        # import matplotlib.pyplot as plt
-        # plt.show()
-        
-        return Dataset(recording=recording, sorting_true=sorting_true)
-    
     elif type_dataset == "synth":
         ####################################
         # Generate data as in the paper
@@ -139,12 +116,21 @@ def get_dataset(config: DictConfig):
         labels = np.zeros(num_sources * numOfevents, dtype=int)
         for i in range(num_sources):
             labels[i*numOfevents:(i+1)*numOfevents] = i
-        sorting = se.NumpySorting.from_times_labels([times], [labels], fs)
+        sorting_true = se.NumpySorting.from_times_labels([times], [labels], fs)
         
-        return Dataset(recording=recording, sorting_true=sorting)
+    recording_test, sorting_test = subset_data(recording, sorting_true, t_start_test, t_stop_test, "test")
+    recording, sorting_true = subset_data(recording, sorting_true, t_start, t_stop, "training")
+
+    if config["dataset"]["preprocess"] and config["dataset"]["type"] != "synth":
+        print("Preprocessing recording...")
+        recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
+        recording = si.common_reference(recording, reference='global')
+        recording = si.whiten(recording, int_scale=200,
+                                chunk_size=1000)
+    
+    return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
         
-        
-import matplotlib.pyplot as plt
+
 def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length, amps=[0,1]):
     """
     Generate continuous data and its sampled version.
@@ -230,3 +216,16 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
             signal[start_sample : start_sample + filter_length_in_samples] += filter_realization/maxamp*amp
             
     return signal, events_indices
+
+
+def subset_data_slice(data, t_start, t_stop, message):
+    if t_start is not None or t_stop is not None:
+        print(f"Subsetting {message}...")
+        return data.frame_slice(start_frame=int(t_start * data.get_sampling_frequency()), end_frame=int(t_stop * data.get_sampling_frequency()))
+    return data
+
+
+def subset_data(recording, sorting, t_start, t_stop, message):
+    recording = subset_data_slice(recording, t_start, t_stop, message)
+    sorting_true = subset_data_slice(sorting, t_start, t_stop, message)
+    return recording, sorting_true
