@@ -103,7 +103,6 @@ def get_dataset(config: DictConfig):
         amps = config["dataset"]["gen"]["amps"]
         numOfevents = config["dataset"]["gen"]["numOfEvents"]
         T = config["dataset"]["gen"]["T"]
-        num_segments = 1
         
         print("Noise ", config["dataset"]["gen"]["noise"])
         print("Generating data")
@@ -129,20 +128,6 @@ def get_dataset(config: DictConfig):
         ####################################
         # Convert to a spikeinterface BaseRecording
         ####################################
-        
-        # # Test Recording
-        # traces0 = np.random.normal(0, 10, (num_timepoints[0], num_channels))
-        # recording = se.NumpyRecording(traces_list=[traces0], sampling_frequency=fs)
-        # recording.set_dummy_probe_from_locations(np.zeros((num_channels, 2)))
-        # recording.annotate(is_filtered=True)
-
-        # # Test sorting
-        # times0 = np.int_(np.sort(np.random.uniform(0, num_timepoints, numOfevents)))
-        # labels0 = np.random.randint(1, num_sources + 1, size=numOfevents)
-        # sorting = se.NumpySorting.from_times_labels([times0], [labels0], fs)
-
-        # return Dataset(recording=recording, sorting_true=sorting)
-        
         # Recording
         traces = np.expand_dims(signal, axis=1)
         recording = se.NumpyRecording(traces_list=[traces], sampling_frequency=fs)

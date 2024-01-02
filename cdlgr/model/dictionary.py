@@ -24,7 +24,7 @@ class Dictionary:
         self.channel = self.config["dataset"]["channel"]
         length_ms = self.config["dataset"].get("sources", {}).get("length_ms", None)
         ms_before = length_ms/2 if length_ms is not None else 1.0
-        ms_after = length_ms/2 if length_ms is not None else 2.0
+        ms_after = length_ms/2 + 1000/self.fs if length_ms is not None else 2.0
         wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500, ms_before=ms_before, ms_after=ms_after,
                                         mode="memory")
         templates = wv.get_all_templates()  # Shape (num_units, num_samples, num_channels)
@@ -32,14 +32,17 @@ class Dictionary:
         # remove code duplication
         self.true_dictionary = np.zeros_like(self.dictionary)
         for i in range(templates.shape[0]):
-            # center with respect to the middle of the template
-            templates_center_idx = np.argmax(np.abs(templates[i, :, self.channel]))
-            half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
-            template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
-            if template_loc.shape[0] < self.element_length:
-                self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
+            if self.config["dataset"]["type"] == "synth":
+                self.true_dictionary[:, i] = templates[i, :, self.channel]
             else:
-                self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
+                # center with respect to the middle of the template
+                templates_center_idx = np.argmax(np.abs(templates[i, :, self.channel]))
+                half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
+                template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
+                if template_loc.shape[0] < self.element_length:
+                    self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
+                else:
+                    self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
         self.true_dictionary /= np.linalg.norm(self.true_dictionary, axis=0)
 
         plt.figure(figsize=(10,5))
@@ -58,9 +61,8 @@ class Dictionary:
             for i in range(min(self.num_elements, templates.shape[0])):
                 # plt.plot(templates[i, :, 0])
                 # print(templates.shape)
-                print(self.dictionary.shape)
                 if templates.shape[1] < self.element_length:
-                    self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.dictionary.element_length - templates.shape[1]), 'constant')
+                    self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.element_length - templates.shape[1]), 'constant')
                 else:
                     self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, self.channel]
             # plt.show()

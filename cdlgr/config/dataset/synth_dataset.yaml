@@ -15,8 +15,8 @@ preprocess_params:
   freq_max: 6000
 
 window:
-  split: false
-  window_size_s: 0.044
+  split: true
+  window_size_s: 0.05
 
 
 # Synth-specific parameters
@@ -27,7 +27,7 @@ sources:
 gen:
   noise: 0.1
   amps: [1, 2]
-  numOfEvents: 20
+  numOfEvents: 5
   T: 5
 
 fs: 3000

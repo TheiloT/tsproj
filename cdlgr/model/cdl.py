@@ -32,16 +32,19 @@ class CDL:
         plt.savefig("traces.png")
 
         if self.config["dataset"]["window"]["split"]:
-            detect_threshold = self.config["dataset"]["gen"]["amps"][0] if (self.config["dataset"]["type"] == "synth") else 5
-            peaks = detect_peaks(self.dictionary.dataset.recording, detect_threshold=detect_threshold,
-                                random_chunk_kwargs={'chunk_size':min(10000, 
-                                                self.dictionary.dataset.recording.get_num_frames() - 5)})#, detect_threshold=5, n_shifts=5, peak_span_ms=0.5, peak_span_samples=None, filter=None, filter_kwargs=None, return_idxs=True, return_times=False, return_peak_span=False, return_channel_idxs=False, verbose=False
-
+            detect_threshold = 5
+            exclude_sweep_ms = self.config["dataset"]["sources"]["length_ms"]/2 if (self.config["dataset"]["type"] == "synth") else 0.1
+            peaks = detect_peaks(self.dictionary.dataset.recording, detect_threshold=detect_threshold, exclude_sweep_ms=exclude_sweep_ms,
+                                 random_chunk_kwargs={'chunk_size':min(10000, self.dictionary.dataset.recording.get_num_frames() - 5)})
+                                #, detect_threshold=5, n_shifts=5, peak_span_ms=0.5, peak_span_samples=None, filter=None, filter_kwargs=None, return_idxs=True, return_times=False, return_peak_span=False, return_channel_idxs=False, verbose=False
             peaks = pd.DataFrame(peaks)
             peaks = peaks[peaks["channel_index"] == self.channel]
             # peaks["sample_index"] = peaks["sample_index"].astype(int)
+            print("=======================")
             print(peaks.shape)
-            print(peaks)
+            print("=======================")
+            
+            # print(peaks)
 
             peak_size = 110 # even
             peak_size = int(self.config["dataset"]["window"]["window_size_s"] * self.dictionary.dataset.recording.get_sampling_frequency())
@@ -197,8 +200,11 @@ class CDL:
 
         sorting_cdlgr = si.NumpySorting.from_times_labels(spikes_sorting.sample_index.values, spikes_sorting.unit_index.values, sampling_frequency=self.dictionary.dataset.recording.get_sampling_frequency())
         print(sorting_cdlgr.to_spike_vector())
-
-        cmp = sc.compare_sorter_to_ground_truth(self.dictionary.dataset.sorting_true, sorting_cdlgr, exhaustive_gt=True)
+    
+        length_ms = self.config["dataset"].get("sources", {}).get("length_ms", None)
+        delta_time = length_ms if length_ms is not None else 4  # in ms
+        fs = self.config["dataset"].get("fs", None)
+        cmp = sc.compare_sorter_to_ground_truth(self.dictionary.dataset.sorting_true, sorting_cdlgr, exhaustive_gt=True, delta_time=delta_time, sampling_frequency=fs)
         print(cmp.get_confusion_matrix())
         cmp.print_summary()
         cmp.print_performance()
