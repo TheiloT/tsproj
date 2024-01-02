@@ -94,8 +94,12 @@ class CDL:
         
 
         return traces_seg
+    
+    @property
+    def interpolator_type(self):
+        return self.config["model"]["cdl"]["interpolator_type"]
 
-    def run(self, traces_seg):
+    def train(self, traces_seg):
         print("Running CDL...")       
 
         self.dictionary.recovery_error(-1)
@@ -108,19 +112,22 @@ class CDL:
         for i in range(self.num_iterations):
             print(f"Iteration {i+1}/{self.num_iterations}")
             self.dictionary.plot(i)
-            interpolated_dict, interpolator = self.dictionary.interpolate(self.interpolate, kind='sinc')
+            # interpolated_dict, interpolator = self.dictionary.interpolate(self.interpolate, kind=self.interpolator_type)
             # print(interpolated_dict.shape)
             # sparse_coeffs = self.csc(traces, self.dictionary.dictionary, sparsity=None, boundary=False)
-            time_csc_begin = perf_counter()
-            sparse_coeffs = {}
-            for j in tqdm(traces_seg.keys()):
-                sparse_coeffs[j] = self.code_sparse(
-                    self.csc_old(
-                        traces_seg[j], interpolated_dict, sparsity=None, boundary=True
-                    ), interpolated_dict
-                )
-            time_csc_end = perf_counter()
-            time_csc.append(time_csc_end - time_csc_begin)
+            # time_csc_begin = perf_counter()
+            # sparse_coeffs = {}
+            # for j in tqdm(traces_seg.keys()):
+            #     sparse_coeffs[j] = self.code_sparse(
+            #         self.csc_old(
+            #             traces_seg[j], interpolated_dict, sparsity=None, boundary=True
+            #         ), interpolated_dict
+            #     )
+            # time_csc_end = perf_counter()
+            # time_csc.append(time_csc_end - time_csc_begin)
+            sparse_coeffs, interpolated_dict, interpolator, time_csc_diff = self.run_csc(traces_seg)
+            time_csc.append(time_csc_diff)
+            
             # print(sparse_coeffs)
             if i != self.num_iterations - 1:
                 time_update_begin = perf_counter()
@@ -150,11 +157,42 @@ class CDL:
         plt.tight_layout()
         plt.savefig("time.png")
 
-        self.reconstruct(traces_seg, sparse_coeffs, interpolated_dict)
+        self.reconstruct(traces_seg, sparse_coeffs, interpolated_dict, self.dictionary.dataset.sorting_true)
 
         self.dictionary.save()
 
         self.save_coeffs(sparse_coeffs)
+
+    def test(self):
+        if self.dictionary.dataset.recording_test is not None:
+            print("Testing...")
+            traces_seg = {}
+            traces_seg[0] = self.dictionary.dataset.recording_test.get_traces(
+                channel_ids=[self.channel],
+            ).flatten()
+
+            self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol_test"]
+            sparse_coeffs, interpolated_dict, _, time_diff = self.run_csc(traces_seg)
+
+            self.reconstruct(traces_seg,
+                             sparse_coeffs,
+                             interpolated_dict,
+                             self.dictionary.dataset.sorting_true_test,
+                             "whole",
+                             "test")
+
+    def run_csc(self, traces_seg):
+        time_csc_begin = perf_counter()
+        interpolated_dict, interpolator = self.dictionary.interpolate(self.interpolate, kind=self.interpolator_type)
+        sparse_coeffs = {}
+        for j in tqdm(traces_seg.keys()):
+            sparse_coeffs[j] = self.code_sparse(
+                    self.csc_old(
+                        traces_seg[j], interpolated_dict, sparsity=None, boundary=True
+                    ), interpolated_dict
+                )     
+        time_csc_end = perf_counter()
+        return sparse_coeffs, interpolated_dict, interpolator, time_csc_end - time_csc_begin
 
     def save_coeffs(self, sparse_coeffs):
         sp = {}
@@ -168,14 +206,12 @@ class CDL:
         with open("sparse_coeffs.json", "w") as f:
             json.dump(sp, f, indent=4)
 
-
-    def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict):
-        # assert self.interpolate == 0, "Reconstruction only works for non-interpolated dictionaries"
-        
-        spikes = pd.DataFrame(self.dictionary.dataset.sorting_true.to_spike_vector(concatenated=True))
+    def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict, sorting_true, mode="split", label="train"):       
+        spikes = pd.DataFrame(sorting_true.to_spike_vector(concatenated=True))
+        print(spikes)
         total_number_of_spikes = spikes.shape[0]
       
-        spikes_sorting = pd.DataFrame(columns=["sample_index", "unit_index"])
+        spikes_sorting = pd.DataFrame(columns=["sample_index", "unit_index", "amplitude", "error"])
 
         N_seg = len(traces_seg.keys())
         seg_size = traces_seg[list(traces_seg.keys())[0]].shape[0]
@@ -184,13 +220,20 @@ class CDL:
         reconstructed_final = np.zeros((N_seg, seg_size))
         for k_idx, k in enumerate(sparse_coeffs.keys()): 
             active_i = []
+            idxes = []
+            amps = []
             for i in sparse_coeffs[k].keys():            
                 for j, idx in enumerate(sparse_coeffs[k][i]["idx"]):
                     if idx > seg_size:
                         warnings.warn(f"idx {idx} larger than seg_size {seg_size}")
+                        print("WARNING segment_size")
                         continue
-                    if i not in active_i:
-                        active_i.append(i)                        
+                    if i not in active_i or mode != "split":
+                        active_i.append(i)    
+                        idxes.append(idx)
+                        amps.append(sparse_coeffs[k][i]["amp"][j])
+                    else:
+                        print("Atom already active")                    
                     # print((sparse_coeffs[k][i]["amp"][j] * interpolated_dict[:, i]).shape)
                     # print(k_idx, idx, idx + len(interpolated_dict[:, i]))
                     # print(reconstructed.shape)
@@ -202,32 +245,105 @@ class CDL:
             reconstructed_final[k_idx, :] = reconstructed[k_idx, :][interpolated_dict.shape[0] - 1:]
 
             active_atoms = []
-            for i in active_i:
+            for idx, i in enumerate(active_i):
                 if self.interpolate != 0:
                     active_atoms.append(i//self.interpolate)
                 else:
                     active_atoms.append(i) 
 
-                spikes_sorting.loc[k_idx] = [k, active_atoms[-1]]
+                if mode == "split":
+                    spikes_sorting.loc[k_idx] = [k, active_atoms[-1], amps[idx], 0]
+                else:
+                    reconstructed_part = reconstructed[k_idx, idxes[idx]:idxes[idx]+self.dictionary.element_length*2]
+                    original_part = traces_seg[k][idxes[idx]-self.dictionary.element_length:idxes[idx]+self.dictionary.element_length]
+                    # error = np.linalg.norm(reconstructed_part - original_part)/np.linalg.norm(original_part)
+                    # error = reconstructed_part.dot(original_part)/(np.linalg.norm(reconstructed_part)*np.linalg.norm(original_part))
+                    normalized_reconstructed = reconstructed_part/np.linalg.norm(reconstructed_part)
+                    normalized_original = original_part/np.linalg.norm(original_part)
+
+                    max_length = min(len(normalized_reconstructed), len(normalized_original))
+                    normalized_reconstructed = normalized_reconstructed[:max_length]
+                    normalized_original = normalized_original[:max_length]
+
+                    error = np.sqrt(1-np.dot(normalized_reconstructed, normalized_original)**2)
+                    # error = np.linalg.norm(reconstructed_part - original_part)/np.linalg.norm(original_part)
+                    # from dtaidistance import dtw
+                    # error = dtw.distance(reconstructed_part, original_part)
+                    # if mode != "split":
+                    #     plt.figure()
+                    #     plt.plot(normalized_reconstructed, label="reconstructed")
+                    #     plt.plot(normalized_original, label="original")
+                    #     plt.legend()
+                    #     plt.title(f"Active filters: {active_atoms} - interpolated {active_i}")
+                    #     plt.show()
+                    spikes_sorting.loc[len(spikes_sorting)] = [idxes[idx]-self.dictionary.element_length//2, active_atoms[-1], amps[idx], error]
                 
             if (k_idx < 10):
+                plt.close('all')
                 plt.figure()
                 plt.plot(traces_seg[k][:], label="original")
                 plt.plot(reconstructed_final[k_idx, :], label="reconstructed")
                 plt.legend()
                 plt.title(f"Active filters: {active_atoms} - interpolated {active_i}")
-                plt.savefig(f"reconstructed_{k_idx}_{k}.png")
+                if len(traces_seg[k][:]) > 1000:
+                    plt.show()
+                plt.savefig(f"reconstructed_{k_idx}_{k}_{label}.png")
                 plt.close()
             else:
                 print("\rNot saving spike {}/{}".format(k_idx, total_number_of_spikes), end="")
         print()
 
-        print(spikes_sorting)
+        spikes_sorting.sort_values(by=["amplitude"], inplace=True)
+        print(spikes_sorting.tail(20))
+
+        sub_spike_sortings = []
+
+        if mode == "whole":
+            # dbscan for amplitudem select cluster with max amplitude
+            # from sklearn.cluster import HDBSCAN
+            # clustering = HDBSCAN().fit(spikes_sorting.amplitude.values.reshape(-1, 1))
+            # print(clustering.labels_)
+
+            # spikes_sorting["cluster"] = clustering.labels_
+
+            # plt.plot(spikes_sorting.cluster.values, spikes_sorting.amplitude.values, '.')
+            # plt.show()
+
+            # irow_amplitude_max = spikes_sorting.amplitude.argmax()
+            # cluster_amp_max = spikes_sorting.cluster.iloc[irow_amplitude_max]
+            # print(cluster_amp_max)
+            # spikes_sorting = spikes_sorting[spikes_sorting.cluster == cluster_amp_max]
+
+            # print(spikes_sorting)
+            for unit in spikes_sorting.unit_index.unique():
+                sub_spike_sorting = spikes_sorting[spikes_sorting.unit_index == unit]
+                diffs = np.diff(sub_spike_sorting.amplitude.values)
+                diffs = np.insert(diffs, 0, 0)
+                diffs_norm = diffs/sub_spike_sorting.amplitude.values
+                sub_spike_sorting["diff"] = diffs_norm
+
+                rate = self.config["model"]["cdl"]["rel_amp_split_test"]
+                idx_amp_min = sub_spike_sorting.loc[sub_spike_sorting["diff"] > rate, "amplitude"].max()
+                sub_spike_sorting = sub_spike_sorting[sub_spike_sorting["amplitude"] > idx_amp_min]
+                sub_spike_sortings.append(sub_spike_sorting)
+
+            print(spikes_sorting.tail(50))
+
+            spikes_sorting = pd.concat(sub_spike_sortings)
+
+        # spikes_sorting.drop(labels="amplitude", axis=1, inplace=True)
+        spikes_sorting["sample_index"] = spikes_sorting["sample_index"].astype(int)
+        spikes_sorting["unit_index"] = spikes_sorting["unit_index"].astype(int)
+
+        # plt.close()
+        # plt.figure()
+        # plt.hist(spikes_sorting.amplitude, bins=100, density=True)
+        # plt.show()
 
         sorting_cdlgr = si.NumpySorting.from_times_labels(spikes_sorting.sample_index.values, spikes_sorting.unit_index.values, sampling_frequency=self.dictionary.dataset.recording.get_sampling_frequency())
         print(sorting_cdlgr.to_spike_vector())
 
-        cmp = sc.compare_sorter_to_ground_truth(self.dictionary.dataset.sorting_true, sorting_cdlgr, exhaustive_gt=True)
+        cmp = sc.compare_sorter_to_ground_truth(sorting_true, sorting_cdlgr, exhaustive_gt=True)
         print(cmp.get_confusion_matrix())
         cmp.print_summary()
         cmp.print_performance()
@@ -247,17 +363,17 @@ class CDL:
         ax1 = sns.swarmplot(data=perf2, x='measurement', y='value', ax=ax1)
         ax1.set_xticklabels(labels=ax1.get_xticklabels(), rotation=45)
         fig1.tight_layout()
-        fig1.savefig("perf.png")
+        fig1.savefig(f"perf-{label}.png")
 
         plt.figure()
         sw.plot_agreement_matrix(cmp, ordered=True)
         plt.tight_layout()
-        plt.savefig("agreement_matrix.png")
+        plt.savefig(f"agreement_matrix-{label}.png")
 
         plt.figure()
         sw.plot_confusion_matrix(cmp)
         plt.tight_layout()
-        plt.savefig("confusion_matrix.png")
+        plt.savefig(f"confusion_matrix-{label}.png")
 
         # optimization: add term to have different templates
 
@@ -312,6 +428,7 @@ class CDL:
                 temp["amp"] = dense_coeffs[indices + fidx * clen]
                 sparse_coeffs[fidx] = temp
 
+        # print(sparse_coeffs)
 
         return sparse_coeffs
 
@@ -444,6 +561,7 @@ class CDL:
                 chosen_vals
             )  # Returns the filter with the highest inner product
             coeff_idx = chosen_idx[filter_idx]  # index within the chosen filter
+            print("Choice", chosen_vals[filter_idx], filter_idx, coeff_idx)
 
             #######################
             # Projection step
@@ -484,8 +602,9 @@ class CDL:
             coeffs[temp_idx[: iternum + 1]] = sparse_code
 
             iternum += 1
+            # print("CSC", iternum, err_residual)
 
-        err_residual = np.linalg.norm(residual)
+            err_residual = np.linalg.norm(residual) / np.sqrt(np.size(residual))
         # print(coeffs)
         # print(coeffs.shape)
         return coeffs
