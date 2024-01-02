@@ -32,17 +32,17 @@ class Dictionary:
         # remove code duplication
         self.true_dictionary = np.zeros_like(self.dictionary)
         for i in range(templates.shape[0]):
-            if self.config["dataset"]["type"] == "synth":
-                self.true_dictionary[:, i] = templates[i, :, self.channel]
+            # if self.config["dataset"]["type"] == "synth":
+            #     self.true_dictionary[:, i] = templates[i, :, self.channel]
+            # else:
+            # center with respect to the middle of the template
+            templates_center_idx = np.argmin(templates[i, :, self.channel])
+            half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
+            template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
+            if template_loc.shape[0] < self.element_length:
+                self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
             else:
-                # center with respect to the middle of the template
-                templates_center_idx = np.argmax(np.abs(templates[i, :, self.channel]))
-                half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
-                template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
-                if template_loc.shape[0] < self.element_length:
-                    self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
-                else:
-                    self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
+                self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
         self.true_dictionary /= np.linalg.norm(self.true_dictionary, axis=0)
 
         plt.figure(figsize=(10,5))

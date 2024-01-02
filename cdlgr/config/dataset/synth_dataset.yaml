@@ -16,7 +16,7 @@ preprocess_params:
 
 window:
   split: true
-  window_size_s: 0.05
+  window_size_s: 0.03
 
 
 # Synth-specific parameters

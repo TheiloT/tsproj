@@ -40,9 +40,6 @@ class CDL:
             peaks = pd.DataFrame(peaks)
             peaks = peaks[peaks["channel_index"] == self.channel]
             # peaks["sample_index"] = peaks["sample_index"].astype(int)
-            print("=======================")
-            print(peaks.shape)
-            print("=======================")
             
             # print(peaks)
 
@@ -70,7 +67,7 @@ class CDL:
             # initial dictionary with atoms around peaks
             if self.config["model"]["dictionary"]["init_templates"] == "signal":
                 for k in range(self.dictionary.num_elements):
-                    self.dictionary.dictionary[:, k] = traces[peaks.sample_index.values[k]-self.dictionary.element_length//2:
+                    self.dictionary.dictionary[:, 1-k] = traces[peaks.sample_index.values[k]-self.dictionary.element_length//2:
                                                 peaks.sample_index.values[k]+self.dictionary.element_length//2+1]
              
                 self.dictionary.normalize()
