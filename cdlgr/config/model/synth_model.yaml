@@ -1,11 +1,11 @@
 dictionary:
   num_elements: 2
   element_length_ms: 11 # should make an odd number of samples # 2.3
-  init_templates: "signal" # "real" "random" "signal"
+  init_templates: "real" # "real" "random" "signal"
 
 cdl:
   num_iterations: 5
-  interpolate: 2 # should be even, 0 means no interpolation
+  interpolate: 0 # should be even, 0 means no interpolation
   sparsity_tol: 1
   sparsity_tol_test: 40 # average spike rate # base it on the number of spikes in the test data OR a criteria on matching (amplitude not too high or low)
   rel_amp_split_test: 0.6

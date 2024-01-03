@@ -10,7 +10,10 @@ import spikeinterface.widgets as sw
 import pandas as pd
 from tqdm import tqdm
 import warnings
-import json 
+import json
+from itertools import permutations
+from copy import deepcopy
+
 
 class CDL:
     def __init__(self, dictionary, config):
@@ -85,7 +88,20 @@ class CDL:
                 for k in range(self.dictionary.num_elements):
                     self.dictionary.dictionary[:, k] = get_frames(peaks.sample_index.values[k]-self.dictionary.element_length//2,
                                                 peaks.sample_index.values[k]+self.dictionary.element_length//2+1)
-             
+                # Ensure consistency in the indexation of the filters between true and estimated dictionaries
+                best_perm, best_total_error = None, np.infty
+                copy_dictionary = deepcopy(self.dictionary)
+                for perm in permutations(range(self.dictionary.num_elements)):
+                    copy_dictionary.dictionary = self.dictionary.dictionary[:, perm].copy()
+                    error = np.sum(copy_dictionary.recovery_error_interp(-1, numOfsubgrids=self.config["model"]["cdl"]["interpolate"], save_plots=False))
+                    print(perm)
+                    print(error)
+                    if error < best_total_error:
+                        best_total_error = error
+                        best_perm = perm
+                self.dictionary.dictionary = self.dictionary.dictionary[:, best_perm]
+                print(best_perm)
+
                 self.dictionary.normalize()
         else:
             traces_seg = {}
@@ -116,23 +132,9 @@ class CDL:
         for i in range(self.num_iterations):
             print(f"Iteration {i+1}/{self.num_iterations}")
             self.dictionary.plot(i)
-            # interpolated_dict, interpolator = self.dictionary.interpolate(self.interpolate, kind=self.interpolator_type)
-            # print(interpolated_dict.shape)
-            # sparse_coeffs = self.csc(traces, self.dictionary.dictionary, sparsity=None, boundary=False)
-            # time_csc_begin = perf_counter()
-            # sparse_coeffs = {}
-            # for j in tqdm(traces_seg.keys()):
-            #     sparse_coeffs[j] = self.code_sparse(
-            #         self.csc_old(
-            #             traces_seg[j], interpolated_dict, sparsity=None, boundary=True
-            #         ), interpolated_dict
-            #     )
-            # time_csc_end = perf_counter()
-            # time_csc.append(time_csc_end - time_csc_begin)
             sparse_coeffs, interpolated_dict, interpolator, time_csc_diff = self.run_csc(traces_seg)
             time_csc.append(time_csc_diff)
             
-            # print(sparse_coeffs)
             if i != self.num_iterations - 1:
                 time_update_begin = perf_counter()
                 self.dictionary.update(traces_seg, sparse_coeffs, interpolator)   
@@ -470,67 +472,6 @@ class CDL:
 
     def terminate_csc(self, numOfiter, numOfmaxcoeffs, err_residual, err_bound):
         return (err_residual < err_bound) or (numOfiter >= numOfmaxcoeffs)
-
-    def csc(self, y_seg, dictionary, sparsity=None, err=None, boundary=True):
-        num_elements = dictionary.shape[1]
-        num_samples = dictionary.shape[0]
-        N = y_seg.shape[0]
-
-        zs = []
-        ks = np.zeros((num_samples, N))  # Track used atoms
-
-        def build_atom(k, delay):  # Build the shifted template of length N
-            dk = np.zeros((N))
-            dk[delay : delay + len(dictionary[:, k])] = dictionary[:, k]
-            return dk
-
-        residual = y_seg.copy()
-        for _ in range(4):  # self.sparsity_tol):
-            chosen_vals = np.zeros(num_elements)
-            chosen_idx = np.zeros(num_elements, dtype=np.int32)
-            for i in range(num_elements):
-                atom = dictionary[:, i]
-                corr = np.correlate(residual, atom, "valid")
-                corr[ks[i, : len(corr)] == 1] = 0  # ignore already used atoms
-                argmax = np.argmax(np.abs(corr))
-                prod_scal = corr[argmax]
-                # if np.abs(prod_scal) > np.abs(best_val):
-                #     best_k, best_val = (k, argmax, prod_scal), prod_scal
-                chosen_idx[i] = argmax
-                chosen_vals[i] = prod_scal
-
-            filter_idx = np.argmax(
-                chosen_vals
-            )  # Returns the filter with the highest inner product
-            coeff_idx = chosen_idx[filter_idx]  # index within the chosen filter
-            val_dix = chosen_vals[filter_idx]
-            ks[
-                filter_idx, coeff_idx
-            ] = 1  # check coeff idx not larger than len(atoms) ?
-
-            zs.append((filter_idx, coeff_idx, val_dix))
-
-            sub_space_matrix = np.zeros((N, len(zs)))
-            xp = np.zeros(len(zs))
-            for i, (k2, delay2, prod_scal2) in enumerate(zs):
-                sub_space_matrix[:, i] = build_atom(k2, delay2)
-                xp[i] = prod_scal2
-            inv_mat = np.linalg.pinv(sub_space_matrix.T @ sub_space_matrix)
-            projection = sub_space_matrix @ inv_mat @ sub_space_matrix.T @ y_seg.copy()
-
-            residual = y_seg.copy() - projection
-
-        coeffs = {}
-        for i in range(num_elements):
-            coeffs[i] = {"idx": [], "amp": []}
-        for i, (k, delay, prod_scal) in enumerate(zs):
-            coeffs[k]["idx"].append(delay)
-            coeffs[k]["amp"].append(prod_scal)
-        for i in range(num_elements):
-            coeffs[i]["idx"] = np.array(coeffs[i]["idx"], dtype=int)
-            coeffs[i]["amp"] = np.array(coeffs[i]["amp"])
-
-        return coeffs
 
     def csc_old(self, y_seg, dictionary, sparsity=None, err=None, boundary=True):
         """
