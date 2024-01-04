@@ -12,7 +12,7 @@ tstop_test_s:
 
 channel: 0
 
-preprocess: true
+preprocess: false
 preprocess_params:
   freq_min:
   freq_max:
@@ -25,13 +25,13 @@ window:
 # Synth-specific parameters
 sources:
   num: 2
-  length_ms: 11
+  length_ms: 10.5
 
 gen:
   seed:
   noise: 0.1
   amps: [1, 2]
-  numOfEvents: 5
-  T: 5
+  numOfEvents: 10
+  T: 3
 
-fs: 5000
+fs: 10000
