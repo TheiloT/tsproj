@@ -4,9 +4,13 @@ defaults:
   - /dataset: default_dataset
   - /model: default_model
 
+experiment: sandbox
+
 hydra:
   job:
     chdir: true
   run:
-    dir: ./outputs/${dataset.type}_${dataset.name}_${dataset.recording}_${now:%Y-%m-%d}/${now:%H-%M-%S}
-  
+    dir: ./outputs/${dataset.type}_experiments/experiment_${experiment}/date_${now:%Y-%m-%d}_time_${now:%H-%M-%S}/interp_${model.cdl.interpolate}/seed_${dataset.gen.seed}
+  sweep:
+    dir: ./outputs/${dataset.type}_experiments/experiment_${experiment}/date_${now:%Y-%m-%d}_time_${now:%H-%M-%S}
+    subdir: interp_${model.cdl.interpolate}/seed_${dataset.gen.seed}

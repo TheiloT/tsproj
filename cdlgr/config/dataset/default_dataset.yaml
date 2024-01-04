@@ -20,3 +20,6 @@ preprocess_params:
 window:
   split: true
   window_size_s: 0.0044
+
+gen:
+  seed: # Only used for synthetic data

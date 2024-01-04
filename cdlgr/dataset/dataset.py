@@ -6,6 +6,7 @@ import spikeinterface.extractors as se
 import spikeinterface.widgets as sw
 from dataclasses import dataclass
 from pprint import pprint
+from time import time
 
 @dataclass
 class Dataset:
@@ -24,7 +25,8 @@ def get_dataset(config: DictConfig):
     t_stop_test = config["dataset"]["tstop_test_s"]
 
     if type_dataset == "spikeforest":
-        print(f"Loading dataset {config['dataset']['name']}/{config['dataset']['recording']}...")
+        if config["output"]["verbose"] > 0:
+            print(f"Loading dataset {config['dataset']['name']}/{config['dataset']['recording']}...")
         if "uri" in config["dataset"]:
             uri = config["dataset"]["uri"]
             all_recordings = sf.load_spikeforest_recordings(uri)
@@ -33,27 +35,33 @@ def get_dataset(config: DictConfig):
         else:
             dataset_raw = sf.load_spikeforest_recording(study_name=config["dataset"]["name"],
                                                     recording_name=config["dataset"]["recording"])
-        print(f'{dataset_raw.study_set_name}/{dataset_raw.study_name}/{dataset_raw.recording_name}')
-        print(f'Num. channels: {dataset_raw.num_channels}')
-        print(f'Duration (sec): {dataset_raw.duration_sec}')
-        print(f'Sampling frequency (Hz): {dataset_raw.sampling_frequency}')
-        print(f'Num. true units: {dataset_raw.num_true_units}')
-        print('')
+        if config["output"]["verbose"] > 0:
+            print(f'{dataset_raw.study_set_name}/{dataset_raw.study_name}/{dataset_raw.recording_name}')
+            print(f'Num. channels: {dataset_raw.num_channels}')
+            print(f'Duration (sec): {dataset_raw.duration_sec}')
+            print(f'Sampling frequency (Hz): {dataset_raw.sampling_frequency}')
+            print(f'Num. true units: {dataset_raw.num_true_units}')
+            print('')
 
-        print("Getting recording extractor...")
+        if config["output"]["verbose"] > 0:
+            print("Getting recording extractor...")
         recording = dataset_raw.get_recording_extractor()
-        print("Getting sorting true extractor...")
+        if config["output"]["verbose"] > 0:
+            print("Getting sorting true extractor...")
         sorting_true = dataset_raw.get_sorting_true_extractor()
-        print(f'Recording extractor info: {recording.get_num_channels()} channels, {recording.get_sampling_frequency()} Hz, {recording.get_total_duration()} sec')
-        print(f'Sorting extractor info: unit ids = {sorting_true.get_unit_ids()}, {sorting_true.get_sampling_frequency()} Hz')
-        print('')
+        if config["output"]["verbose"] > 0:
+            print(f'Recording extractor info: {recording.get_num_channels()} channels, {recording.get_sampling_frequency()} Hz, {recording.get_total_duration()} sec')
+            print(f'Sorting extractor info: unit ids = {sorting_true.get_unit_ids()}, {sorting_true.get_sampling_frequency()} Hz')
+            print('')
         for unit_id in sorting_true.get_unit_ids():
             st = sorting_true.get_unit_spike_train(unit_id=unit_id)
-            print(f'Unit {unit_id}: {len(st)} events')
-        print('')
-        print('Channel locations:')
-        print('X:', recording.get_channel_locations()[:, 0].T)
-        print('Y:', recording.get_channel_locations()[:, 1].T)
+            if config["output"]["verbose"] > 1:
+                print(f'Unit {unit_id}: {len(st)} events')
+        if config["output"]["verbose"] > 1:
+            print('')
+            print('Channel locations:')
+            print('X:', recording.get_channel_locations()[:, 0].T)
+            print('Y:', recording.get_channel_locations()[:, 1].T)
 
     elif type_dataset == "synth":
         ####################################
@@ -80,11 +88,16 @@ def get_dataset(config: DictConfig):
         amps = config["dataset"]["gen"]["amps"]
         numOfevents = config["dataset"]["gen"]["numOfEvents"]
         T = config["dataset"]["gen"]["T"]
+        generation_seed = config["dataset"]["gen"]["seed"]
         
-        print("Noise ", config["dataset"]["gen"]["noise"])
-        print("Generating data")
-        truth, event_indices = generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length, amps)
+        if config["output"]["verbose"] > 0:
+            print("Noise ", config["dataset"]["gen"]["noise"])
+            print("Generating data")
+        truth, event_indices = generate_Simulated_continuous(config, numOfevents, T, fs, dictionary, filter_length, amps, seed=generation_seed)
+        if generation_seed is not None:
+            np.random.seed(generation_seed)
         signal = truth + config["dataset"]["gen"]["noise"]*np.random.randn(T*fs)
+        np.random.seed(int(time()))
 
         # print("Saving data to", folder_name)
         # filename = os.path.join(PATH, 'experiments', folder_name, 'data','T_{}_noise_{}_num_{}_{}.hdf5'.format(T,noisevar, config_d['numOfevents'], i))
@@ -99,7 +112,8 @@ def get_dataset(config: DictConfig):
         #     dset.attrs['noisevar'] = noisevar
         #     dset.attrs['amps'] = amps
         #     dset.attrs['filter_length'] = config_d['filter_length']
-        print("\nData generated")
+        if config["output"]["verbose"] > 0:
+            print("\nData generated")
         
         
         ####################################
@@ -118,11 +132,12 @@ def get_dataset(config: DictConfig):
             labels[i*numOfevents:(i+1)*numOfevents] = i
         sorting_true = se.NumpySorting.from_times_labels([times], [labels], fs)
         
-    recording_test, sorting_test = subset_data(recording, sorting_true, t_start_test, t_stop_test, "test")
-    recording, sorting_true = subset_data(recording, sorting_true, t_start, t_stop, "training")
+    recording_test, sorting_test = subset_data(config, recording, sorting_true, t_start_test, t_stop_test, "test")
+    recording, sorting_true = subset_data(config,recording, sorting_true, t_start, t_stop, "training")
 
     if config["dataset"]["preprocess"] and config["dataset"]["type"] != "synth":
-        print("Preprocessing recording...")
+        if config["output"]["verbose"] > 0:
+            print("Preprocessing recording...")
         recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
         recording = si.common_reference(recording, reference='global')
         recording = si.whiten(recording, int_scale=200,
@@ -131,7 +146,7 @@ def get_dataset(config: DictConfig):
     return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
         
 
-def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length, amps=[0,1]):
+def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictionary, filter_length, amps=[0,1], seed=None):
     """
     Generate continuous data and its sampled version.
     For now, assume that we know the templates. These templates start from -5 to 5
@@ -143,6 +158,9 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
 
     amps: array (two elements)
         lower boudn and upper bound for the amplitudes
+        
+    seed: int
+        seed for the random number generator. If None, no seed is used.
 
 
     Outputs
@@ -153,6 +171,9 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
     """
     assert(len(amps)==2 and amps[0]<amps[1]), "Wrong amplitude arguments"
 
+    if seed is not None:
+        np.random.seed(seed)
+    
     numOfelements = len(dictionary.keys())
 
     signal = np.zeros(T*fs)
@@ -162,9 +183,11 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
     events_indices = np.zeros((numOfelements, numOfevents))
 
     for fidx in np.arange(numOfelements):
-        print(f"\rGenerating {fidx+1}/{numOfelements} elements", end="")
+        if config["output"]["verbose"] > 1:
+            print(f"\rGenerating {fidx+1}/{numOfelements} elements", end="")
         events_idx = np.sort(T*np.random.rand(numOfevents))
-        print("events", events_idx)
+        if config["output"]["verbose"] > 1:
+            print("events", events_idx)
 
         # Event index generation
         idx_diff = np.where(events_idx[1:] - events_idx[:-1]<filter_length)[0]
@@ -172,7 +195,8 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
 
         counter = 0
         while not condition:
-            print(f"\rGenerating {fidx+1}/{numOfelements} elements (retry {counter+1})", end="")
+            if config["output"]["verbose"] > 1:
+                print(f"\rGenerating {fidx+1}/{numOfelements} elements (retry {counter+1})", end="")
             counter += 1
             if events_idx[0] <= filter_length:
                 new_idx = T*np.random.rand()
@@ -215,17 +239,20 @@ def generate_Simulated_continuous(numOfevents, T, fs, dictionary, filter_length,
                     maxamp = point
             signal[start_sample : start_sample + filter_length_in_samples] += filter_realization/maxamp*amp
             
+    np.random.seed(int(time()))
+            
     return signal, events_indices
 
 
-def subset_data_slice(data, t_start, t_stop, message):
+def subset_data_slice(config: DictConfig, data, t_start, t_stop, message):
     if t_start is not None or t_stop is not None:
-        print(f"Subsetting {message}...")
+        if config["output"]["verbose"] > 0:
+            print(f"Subsetting {message}...")
         return data.frame_slice(start_frame=int(t_start * data.get_sampling_frequency()), end_frame=int(t_stop * data.get_sampling_frequency()))
     return data
 
 
-def subset_data(recording, sorting, t_start, t_stop, message):
-    recording = subset_data_slice(recording, t_start, t_stop, message)
-    sorting_true = subset_data_slice(sorting, t_start, t_stop, message)
+def subset_data(config: DictConfig, recording, sorting, t_start, t_stop, message):
+    recording = subset_data_slice(config, recording, t_start, t_stop, message)
+    sorting_true = subset_data_slice(config, sorting, t_start, t_stop, message)
     return recording, sorting_true
