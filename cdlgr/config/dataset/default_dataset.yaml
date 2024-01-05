@@ -26,6 +26,14 @@ tstop_test_s: 12 #
 
 channel: 18 #0
 detect_threshold: 10
+# tstart_s: 0
+# tstop_s: 10
+# duration_s: 20
+
+# tstart_test_s: 60
+# tstop_test_s: 63
+
+# channel: 18
 
 preprocess: true
 preprocess_params:
