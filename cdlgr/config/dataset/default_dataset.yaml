@@ -15,16 +15,17 @@ uri: sha1://1d343ed7e876ffd73bd8e0daf3b8a2c4265b783c?spikeforest-recordings.json
 # tstart_s: #0 #0.4 #0.11
 # tstop_s: #10 #2 #0.9 #0.9 #0.3 #0.9
 tstart_s: 0 #0.4 #0.11
-tstop_s: 10 #2 #0.9 #0.9 #0.3 #0.9
-duration_s: 20
+tstop_s: 100 #2 #0.9 #0.9 #0.3 #0.9
+# duration_s: 20
 
 # tstart_test_s: 60 #3
 # tstop_test_s: 63 #4
 
-tstart_test_s: #3
-tstop_test_s: #4
+tstart_test_s: 10 #3
+tstop_test_s: 12 #
 
 channel: 18 #0
+detect_threshold: 10
 
 preprocess: true
 preprocess_params:
