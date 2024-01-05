@@ -152,7 +152,7 @@ class Dictionary:
         dict2 = self.dictionary
         dict1 = self.true_dictionary
         
-        print(dict1.shape, dict2.shape)
+        # print(dict1.shape, dict2.shape)
 
         if dict2.shape[1] > dict1.shape[1]:
             if self.config["output"]["verbose"] > 0:

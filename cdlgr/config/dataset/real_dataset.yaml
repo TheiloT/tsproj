@@ -4,7 +4,7 @@ recording: "20170622_patch2"
 uri: sha1://1d343ed7e876ffd73bd8e0daf3b8a2c4265b783c?spikeforest-recordings.json
 
 tstart_s: 0
-tstop_s: 10 # 250
+tstop_s: 100 # 250
 
 tstart_test_s: 250
 tstop_test_s: 255

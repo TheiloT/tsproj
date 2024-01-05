@@ -117,15 +117,15 @@ class CDL:
                 self.dictionary.normalize()
             elif self.config["model"]["dictionary"]["init_templates"] == "cluster":
                 pca_elements = []
-                print("Dictionary shape 0", self.dictionary.dictionary.shape)
+                # print("Dictionary shape 0", self.dictionary.dictionary.shape)
                 for k in range(len(peaks)):
                     pca_elements.append(get_frames(peaks.sample_index.values[k]-self.dictionary.element_length//2,
                                                 peaks.sample_index.values[k]+self.dictionary.element_length//2+1))
                 kmeans = KMeans(n_clusters=self.dictionary.num_elements)
                 kmeans.fit(pca_elements)
                 self.dictionary.dictionary = np.transpose(kmeans.cluster_centers_)
-                print("Dictionary shape 1", self.dictionary.dictionary.shape)
-                print("Dictionary", self.dictionary.dictionary)
+                # print("Dictionary shape 1", self.dictionary.dictionary.shape)
+                # print("Dictionary", self.dictionary.dictionary)
                     # self.dictionary.dictionary[:, k] = get_frames(peaks.sample_index.values[k]-self.dictionary.element_length//2,
                     #                             peaks.sample_index.values[k]+self.dictionary.element_length//2+1)
                 # Ensure consistency in the indexation of the filters between true and estimated dictionaries
@@ -140,7 +140,7 @@ class CDL:
                 # self.dictionary.dictionary = self.dictionary.dictionary[:, best_perm]
 
                 self.dictionary.normalize()
-                print("Dictionary shape 2", self.dictionary.dictionary.shape)
+                # print("Dictionary shape 2", self.dictionary.dictionary.shape)
         else:
             traces_seg = {}
             traces_seg[0] = get_frames()
@@ -326,10 +326,14 @@ class CDL:
                         amps.append(sparse_coeffs[seg_idx][atom_i]["amp"][firing_nb])
                     else:
                         if self.config["output"]["verbose"] > 0:
-                            print("Atom already active")                    
-                    reconstructed[seg_nb, firing_idx : firing_idx + len(interpolated_dict[:, atom_i])] += (
-                        sparse_coeffs[seg_idx][atom_i]["amp"][firing_nb] * interpolated_dict[:, atom_i]
-                    )
+                            print("Atom already active")           
+                    try:         
+                        reconstructed[seg_nb, firing_idx : firing_idx + len(interpolated_dict[:, atom_i])] += (
+                            sparse_coeffs[seg_idx][atom_i]["amp"][firing_nb] * interpolated_dict[:, atom_i]
+                        )
+                    except:
+                        print("Error", seg_nb, firing_idx, len(interpolated_dict[:, atom_i]), sparse_coeffs[seg_idx][atom_i]["amp"][firing_nb], interpolated_dict.shape)
+                        
             reconstructed_final[seg_nb, :] = reconstructed[seg_nb, :][interpolated_dict.shape[0] - 1:]
 
             active_atoms = []
