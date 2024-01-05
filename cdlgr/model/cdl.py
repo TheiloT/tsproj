@@ -15,7 +15,7 @@ import json
 from itertools import permutations
 from copy import deepcopy
 
-from cdlgr.plot.plot import plot_reconstructed, plot_firing
+from cdlgr.outputs.plot import plot_reconstructed, plot_firing, plot_traces
 
 
 class CDL:
@@ -32,7 +32,7 @@ class CDL:
     def split_traces(self):
         time_preprocessing_begin = perf_counter()
         if self.config["output"]["verbose"] > 0:
-            print("Splitting traces...")                
+            print("\nSplitting traces...")                
         self.channel = self.config["dataset"]["channel"]
         
         fs = self.config["dataset"].get("fs", None)
@@ -40,11 +40,6 @@ class CDL:
 
         if self.config["output"]["verbose"] > 0:
             print("\tRetrieving traces...")
-        traces = self.dictionary.dataset.recording.get_traces(
-            start_frame=0,
-            end_frame=min(10000, self.dictionary.dataset.recording.get_num_frames()),
-            channel_ids=[self.channel],
-        )
 
         def get_frames(start_frame=None, end_frame=None):
             return self.dictionary.dataset.recording.get_traces(
@@ -54,20 +49,28 @@ class CDL:
             ).flatten()
         
         if self.config["output"]["plot"] > 0:
-            plt.figure()
-            plt.plot(np.arange(traces.shape[0])/fs, traces)
-            plt.xlabel("Time (s)")
-            plt.title("Train signal traces")
-            plt.savefig("train_traces.png")
+            traces = self.dictionary.dataset.recording.get_traces(
+                start_frame=0,
+                end_frame=min(10000, self.dictionary.dataset.recording.get_num_frames()),
+                channel_ids=[self.channel],
+            )
+            plot_traces(traces, fs, "train")
 
         if self.config["dataset"]["window"]["split"]:
-            detect_threshold = 5
+            detect_threshold = self.config["dataset"]["detect_threshold"]
             exclude_sweep_ms = self.config["dataset"]["sources"]["length_ms"]/2 if (self.config["dataset"]["type"] == "synth") else 0.1
             peaks = detect_peaks(self.dictionary.dataset.recording, detect_threshold=detect_threshold, exclude_sweep_ms=exclude_sweep_ms,
                                  random_chunk_kwargs={'chunk_size':min(10000, self.dictionary.dataset.recording.get_num_frames() - 5)})
-                                #, detect_threshold=5, n_shifts=5, peak_span_ms=0.5, peak_span_samples=None, filter=None, filter_kwargs=None, return_idxs=True, return_times=False, return_peak_span=False, return_channel_idxs=False, verbose=False
+
             peaks = pd.DataFrame(peaks)
             peaks = peaks[peaks["channel_index"] == self.channel]
+
+            # plt.close('all')
+            # traces = get_frames()
+            # for peak in peaks.iterrows():
+            #     plt.scatter(peak[1]["sample_index"], traces[int(peak[1]["sample_index"])], color="r")
+            # plt.plot(traces)
+            # plt.show()
 
             peak_size = int(self.config["dataset"]["window"]["window_size_s"] * fs)
             half_size = peak_size // 2
@@ -89,6 +92,9 @@ class CDL:
                 if self.config["output"]["plot"] > 0:
                     plt.plot(traces_seg[idx][:])
             if self.config["output"]["plot"] > 0:
+                plt.xlabel("Sample index")
+                plt.ylabel("Amplitude (a. u.)")
+                plt.title("Traces segments")
                 plt.savefig("traces_seg.png")
 
             # initial dictionary with atoms around peaks
@@ -118,6 +124,9 @@ class CDL:
         if self.config["output"]["verbose"] > 0:
             print("Preprocessing time: ", time_preprocessing_end - time_preprocessing_begin)
         np.savetxt("time_preprocessing.txt", [time_preprocessing_end - time_preprocessing_begin], fmt="%f")
+        
+        if self.config["output"]["verbose"] > 0:
+            print("Splitting done.\n")
 
         return traces_seg
     
@@ -148,10 +157,12 @@ class CDL:
                 time_update_end = perf_counter()
                 time_update.append(time_update_end - time_update_begin)
 
-                error = self.dictionary.recovery_error(i)
-                error2 = self.dictionary.recovery_error_interp(i, self.interpolate)
+            if self.config["output"]["plot"] > 1 or (self.config["output"]["plot"] > 0 and i == self.num_iterations-1):
+                error = self.dictionary.recovery_error(i+1)
+                error2 = self.dictionary.recovery_error_interp(i+1, self.interpolate)[0]
                 if self.config["output"]["verbose"] > 0:
-                    print("Dictionary error ", error, error2)
+                    print("Dictionary error (original and interpolated):", error, error2)
+                    print()
 
         time_total_end = perf_counter()
 
@@ -159,6 +170,7 @@ class CDL:
             print("Total time: ", time_total_end - time_total_begin)
             print("CSC time: ", np.sum(time_csc))
             print("Update time: ", np.sum(time_update))
+            print()
 
         np.savez("time.npz", time_csc=time_csc, time_update=time_update, time_total=time_total_end - time_total_begin)
 
@@ -182,6 +194,7 @@ class CDL:
     def test(self):
         if self.dictionary.dataset.recording_test is not None:
             if self.config["output"]["verbose"] > 0:
+                print("==============")
                 print("Testing...")
             traces_seg = {}
             traces_seg[0] = self.dictionary.dataset.recording_test.get_traces(
@@ -231,10 +244,11 @@ class CDL:
         min_diff_unit = None
         for unit in sorting_true.unit_ids:
             spikes_idxes = sorting_true.get_unit_spike_train(unit_id=unit)
-            min_diff_true = np.abs(spikes_idxes - spike_idx).min()
-            if min_diff_true < min_diff:
-                min_diff = min_diff_true
-                min_diff_unit = unit
+            if len(spikes_idxes) > 0:
+                min_diff_true = np.abs(spikes_idxes - spike_idx).min()
+                if min_diff_true < min_diff:
+                    min_diff = min_diff_true
+                    min_diff_unit = unit
         return min_diff, min_diff_unit
 
     def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict, sorting_true, mode="split", label="train"):
@@ -259,8 +273,8 @@ class CDL:
         """
         spikes = pd.DataFrame(sorting_true.to_spike_vector(concatenated=True))
         if self.config["output"]["verbose"] > 1:
-            print(spikes)
-        total_number_of_spikes = spikes.shape[0]
+            print("Groundtruth", spikes)
+        total_number_of_segments = len(traces_seg.keys())
       
         spikes_sorting = pd.DataFrame(columns=["sample_index", "unit_index", "amplitude", "error"])
 
@@ -278,7 +292,6 @@ class CDL:
                 for firing_nb, firing_idx in enumerate(sparse_coeffs[seg_idx][atom_i]["idx"]):
                     if firing_idx > seg_size:
                         warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
-                        print("WARNING segment_size")
                         continue
                     if atom_i not in active_i or mode != "split":
                         active_i.append(atom_i)    
@@ -323,10 +336,10 @@ class CDL:
                     
             if (seg_nb < 10) or min_diff > 15:
                 if self.config["output"]["plot"] > 1:
-                    plot_reconstructed(traces_seg, seg_idx, reconstructed_final, seg_nb, active_atoms, active_i, min_diff, min_diff_unit, label)
+                    plot_reconstructed(traces_seg, seg_idx, reconstructed_final, seg_nb, active_atoms, active_i, min_diff, min_diff_unit, mode, label)
             else:
                 if self.config["output"]["plot"] > 1:
-                    print("\rNot saving spike {}/{}".format(seg_nb, total_number_of_spikes), end="")
+                    print("\rNot reconstructing segment {}/{}".format(seg_nb, total_number_of_segments), end="")
         if self.config["output"]["verbose"] > 0:
             print()
 
@@ -336,19 +349,24 @@ class CDL:
 
         sub_spike_sortings = []
 
+        if self.config["output"]["verbose"] > 1:
+            print("Mode", mode)
         if mode == "whole":
             for unit in spikes_sorting.unit_index.unique():
                 sub_spike_sorting = spikes_sorting[spikes_sorting.unit_index == unit]
                 diffs = np.diff(sub_spike_sorting.amplitude.values)
                 diffs = np.insert(diffs, 0, 0)
                 diffs_norm = diffs/sub_spike_sorting.amplitude.values
-                sub_spike_sorting["diff"] = diffs_norm
+                sub_spike_sorting["diff"] = diffs_norm    
+
+                if self.config["output"]["verbose"] > 1:
+                    print(sub_spike_sorting.tail(50))
 
                 rate = self.config["model"]["cdl"]["rel_amp_split_test"]
-                idx_amp_min = sub_spike_sorting.loc[sub_spike_sorting["diff"] > rate, "amplitude"].max()
-                if np.isnan(idx_amp_min):
-                    idx_amp_min = 0
-                sub_spike_sorting = sub_spike_sorting[sub_spike_sorting["amplitude"] > idx_amp_min]
+                amp_min = sub_spike_sorting.loc[sub_spike_sorting["diff"] > rate, "amplitude"].max()
+                if np.isnan(amp_min):
+                    amp_min = 0
+                sub_spike_sorting = sub_spike_sorting[sub_spike_sorting["amplitude"] >= amp_min]
                 sub_spike_sortings.append(sub_spike_sorting)
 
             if self.config["output"]["verbose"] > 1:
@@ -368,13 +386,14 @@ class CDL:
         fs = self.config["dataset"].get("fs", None)
         fs = fs if fs is not None else self.dictionary.dataset.recording.get_sampling_frequency()
         cmp = sc.compare_sorter_to_ground_truth(sorting_true, sorting_cdlgr, exhaustive_gt=True, delta_time=delta_time, sampling_frequency=fs)
+      
         if self.config["output"]["verbose"] > 0:
+            print("Confusion matrix:")
             print(cmp.get_confusion_matrix())
+            print()
             cmp.print_summary()
             cmp.print_performance()
-
-            print(cmp.match_event_count)
-            print(cmp.match_score)
+            print()
 
         perf = cmp.get_performance()
         perf.to_csv(f"perf-{label}.csv")
@@ -422,6 +441,8 @@ class CDL:
             true_positives, false_positives = self.find_good_and_bad_firings(traces_seg, sparse_coeffs, sorting_true, mode)
             plot_one_firing(true_positives, "TP")
             plot_one_firing(false_positives, "FP")
+            if self.config["output"]["verbose"] > 0:
+                print()
             
         return reconstructed
     
@@ -473,7 +494,6 @@ class CDL:
                 for firing_idx in sparse_coeffs[seg_idx][atom_i]["idx"]:
                     if firing_idx > seg_size:
                         warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
-                        print("WARNING segment_size")
                         continue
                     if mode == "whole":
                         idx = firing_idx

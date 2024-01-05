@@ -61,6 +61,15 @@ def get_dataset(config: DictConfig):
             print('Channel locations:')
             print('X:', recording.get_channel_locations()[:, 0].T)
             print('Y:', recording.get_channel_locations()[:, 1].T)
+
+            
+        if config["dataset"]["preprocess"]:
+            if config["output"]["verbose"] > 0:
+                print("Preprocessing recording...")
+            recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
+            recording = si.common_reference(recording, reference='global')
+            # recording = si.whiten(recording, int_scale=200,
+            #                         chunk_size=1000)
         
         recording_test, sorting_test = subset_data(config, recording, sorting_true, t_start_test, t_stop_test, "test")
         recording, sorting_true = subset_data(config, recording, sorting_true, t_start, t_stop, "training")
@@ -86,7 +95,6 @@ def get_dataset(config: DictConfig):
         generation_seed = config["dataset"]["gen"]["seed"]
         
         if config["output"]["verbose"] > 0:
-            print("Noise ", config["dataset"]["gen"]["noise"])
             print("Generating data")
         if generation_seed is not None:
             np.random.seed(generation_seed)
@@ -98,7 +106,7 @@ def get_dataset(config: DictConfig):
             np.random.seed(int(time()))
 
         if config["output"]["verbose"] > 0:
-            print("\nData generated")
+            print("Data generated")
         
         ####################################
         # Convert to a spikeinterface BaseRecording
@@ -113,14 +121,10 @@ def get_dataset(config: DictConfig):
         
         recording_test, sorting_test = subset_data(config, recording_train, sorting_train, t_start_test, t_stop_test, "test")
         recording, sorting_true = subset_data(config, recording_test, sorting_test, t_start, t_stop, "training")
-
-    if config["dataset"]["preprocess"] and config["dataset"]["type"] != "synth":
+        
         if config["output"]["verbose"] > 0:
-            print("Preprocessing recording...")
-        recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
-        recording = si.common_reference(recording, reference='global')
-        # recording = si.whiten(recording, int_scale=200,
-        #                         chunk_size=1000)
+            print()
+
     
     return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
         

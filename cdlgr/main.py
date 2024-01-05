@@ -8,15 +8,17 @@ from pprint import pprint
 import matplotlib.pyplot as plt
 import numpy as np
 
-from cdlgr.plot.plot import plot_preprocessed
+from cdlgr.outputs.plot import plot_preprocessed
 from cdlgr.model.dictionary import Dictionary
 from cdlgr.model.cdl import CDL
 
 @hydra.main(config_path="config", config_name="default", version_base="1.2")
 def main(cfg: DictConfig):
-    print(OmegaConf.to_yaml(cfg))
-    print(f"Working directory : {os.getcwd()}")
-    print(f"Output directory  : {hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}")
+    if cfg["output"]["verbose"] > 0:
+        print()
+        print(OmegaConf.to_yaml(cfg))
+        print(f"Working directory : {os.getcwd()}")
+        print(f"Output directory  : {hydra.core.hydra_config.HydraConfig.get().runtime.output_dir}")
 
     dataset = get_dataset(cfg)
     plot_preprocessed(dataset, cfg)
@@ -27,6 +29,8 @@ def main(cfg: DictConfig):
     cdl = CDL(dictionary, cfg)
     traces_seg = cdl.split_traces()
     cdl.train(traces_seg)
+    if cfg["output"]["verbose"] > 0:
+        print()
     cdl.test()
 
 
