@@ -6,3 +6,5 @@ preprocess:
   plot_traces: false
   plot_waveforms: false
   plot_snrs: false
+
+fp_threshold_ms: 15  # threshold for false positive detection in ms

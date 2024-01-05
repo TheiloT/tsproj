@@ -19,7 +19,7 @@ preprocess_params:
 
 window:
   split: true
-  window_size_s: 0.03
+  window_size_s: 0.015
 
 
 # Synth-specific parameters
@@ -32,6 +32,6 @@ gen:
   noise: 0.1
   amps: [1, 2]
   numOfEvents: 10
-  T: 3
+  T: 5
 
 fs: 10000

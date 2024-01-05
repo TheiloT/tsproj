@@ -4,7 +4,7 @@ dictionary:
   init_templates: "random" # "real" "random" "signal"
 
 cdl:
-  num_iterations: 5
+  num_iterations: 10
   interpolate: 0 # should be even, 0 means no interpolation
   sparsity_tol: 1
   sparsity_tol_test: 40 # average spike rate # base it on the number of spikes in the test data OR a criteria on matching (amplitude not too high or low)
