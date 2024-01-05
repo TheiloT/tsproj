@@ -1,7 +1,7 @@
 dictionary:
   num_elements: 2
   element_length_ms: 10.5 # should make an odd number of samples
-  init_templates: "random" # "real" "random" "signal"
+  init_templates: "signal" # "real" "random" "signal"
 
 cdl:
   num_iterations: 10

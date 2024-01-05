@@ -11,6 +11,7 @@ tstart_test_s:
 tstop_test_s:
 
 channel: 0
+detect_threshold: 5
 
 preprocess: false
 preprocess_params:

@@ -140,9 +140,10 @@ def plot_template_and_truth_interp(template_pred, template_truth_interp, unit, e
     """
     plt.figure(figsize=(10,5))
     times = 1000*np.arange(template_pred.shape[0])/fs
-    time_offset = 1000*offset/fs
+    time_offset = 1000*offset/fs if offset is not None else np.nan
     true_label = "True" if interpolate == 0 else fr"True (interpolated by ${idx}\times\Delta_K$)"
-    plt.plot(np.roll(template_truth_interp, offset), label=true_label, marker='x')
+    if offset is not None:
+        plt.plot(np.roll(template_truth_interp, offset), label=true_label, marker='x')
     plt.plot(template_pred, label="Estimated", marker='+') 
     plt.xlabel("Time (ms)")
     plt.ylabel("Amplitude (normalized)")

@@ -70,8 +70,8 @@ def view_signal():
             print(i, max_len)
         centering = datasets['idx'][i][len(datasets['idx'][i])//2][0]
         # centering = datasets['idx'][i][0][0] + len(datasets['idx'][i])//2
-        # plt.plot((datasets['idx'][i].astype(int) - int(centering))/1e4, datasets['signal'][i])
-        plt.plot(datasets['idx'][i].astype(int), datasets['signal'][i])
+        plt.plot((datasets['idx'][i].astype(int) - int(centering))/1e4, datasets['signal'][i])
+        # plt.plot(datasets['idx'][i].astype(int), datasets['signal'][i])
         # print(datasets['idx'][i] - centering)
 
 
@@ -83,8 +83,8 @@ def view_signal():
 
 
 # view_groundtruth()
-# view_signal()
-# plt.show()
+view_signal()
+plt.show()
 
 def view_sim_hdf5():
     filename = "experiments/sim/data/T_3_noise_0.1_num_50_0.hdf5"
@@ -102,7 +102,7 @@ def view_sim_hdf5():
 
     plt.show()
 
-view_sim_hdf5()
+# view_sim_hdf5()
 
 # print(len(matrixVar))
 # datasets = {}

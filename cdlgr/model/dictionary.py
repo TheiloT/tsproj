@@ -88,6 +88,11 @@ class Dictionary:
         dict1 = self.true_dictionary
         dict2 = self.dictionary
 
+        if dict2.shape[1] > dict1.shape[1]:
+            if self.config["output"]["verbose"] > 0:
+                print("Truncating dictionary")
+            dict2 = dict2[:, :dict1.shape[1]]
+
         assert(np.shape(dict1)==np.shape(dict2)), "Dictionaries are of different dim!"
         filternum = np.shape(dict1)[1]
 
@@ -146,6 +151,14 @@ class Dictionary:
         """
         dict2 = self.dictionary
         dict1 = self.true_dictionary
+        
+        print(dict1.shape, dict2.shape)
+
+        if dict2.shape[1] > dict1.shape[1]:
+            if self.config["output"]["verbose"] > 0:
+                print("Truncating dictionary")
+            dict2 = dict2[:, :dict1.shape[1]]
+
 
         assert(np.shape(dict1)==np.shape(dict2)), "Dictionaries are of different dim!"
         filternum = np.shape(dict1)[1]
