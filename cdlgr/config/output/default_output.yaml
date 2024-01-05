@@ -1,3 +1,8 @@
-plot_traces: false
-plot_waveforms: false
-plot_snrs: false
+verbose: 1  # 0: no output, 1: basic output, 2: detailed output
+
+plot: 2  # 0: no plots, 1: basic plots, 2: detailed plots
+
+preprocess:
+  plot_traces: false
+  plot_waveforms: false
+  plot_snrs: false

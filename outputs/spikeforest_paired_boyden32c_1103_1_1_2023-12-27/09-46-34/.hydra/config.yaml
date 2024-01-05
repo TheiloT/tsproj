@@ -1,8 +1,0 @@
-output:
-  dir: test
-dataset:
-  type: spikeforest
-  name: paired_boyden32c
-  recording: '1103_1_1'
-  tstart_s: 0
-  tstop_s: 10

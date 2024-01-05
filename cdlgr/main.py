@@ -32,31 +32,6 @@ def main(cfg: DictConfig):
 
 
 
-    # torch.manual_seed(cfg["model"]["seed"]) # https://pytorch.org/docs/stable/notes/randomness.html
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # config = Config(hydra_config=cfg, device=device)
-    # print("Using device:", config.device)
-
-    # data = make_dataloader(config)
-
-    # model = get_model(config, data.train_dataloader, data.X_train.shape[1])
-    
-    # if config.hydra_config["model"]["visualize"]:
-    #     y = model(torch.randn(1, data.X_train.shape[1]))
-    #     # need to install graphviz to have this working (dot command)
-    #     make_dot(y.mean(), params=dict(model.named_parameters())).render("model", format="png")
-    
-    # plot_embeddings(config, model, data.test_dataloader, "before training")
-    # plot_classification(config, model, data, "before training")
-
-    # model = train_model(config, model, data.train_dataloader)
-
-    # plot_embeddings(config, model, data.test_dataloader, "after training")
-    # plot_classification(config, model, data, "after training")
-
-
-
-
 
 if __name__ == "__main__":
     main()

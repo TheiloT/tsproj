@@ -16,6 +16,9 @@ import os
 sns.set_style('white')
 
 def drawFilters(d, init_d=None):
+	""" 
+ Draws true and reconstructed dictionary elements
+	"""
 
 	colors = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -37,6 +40,7 @@ def drawFilters(d, init_d=None):
 
 	plt.draw()
 
+
 def drawDictError(errors):
 	"""
 	Plots the dictionary distance from the initial dictionary as a function of iterations
@@ -56,8 +60,18 @@ r
 
 	plt.draw()
 
-def drawCodeDistribution(code):
 
+def drawCodeDistribution(code):
+	"""
+	Plots the histogram of the amplitude of the code for each dictionary element.
+	A code is a dictionary where each key represents a segments of the signal. The corresponding value is a sparse code, that is:
+		Each key represents a filter
+		The corresponding value is a 2-D array
+			First row: Nonzero indices
+			Second row: Ampltiudes corresponding to nonzero indices
+	"""
+
+	print(code[100])
 	# Bit artificial
 	for key, value in code.items():
 		numOfelements = len(value.keys())
@@ -75,7 +89,6 @@ def drawCodeDistribution(code):
 		plt.hist(coeffs_dist[fidx], bins=100)
 		ax.set_title("Filter {} total number {}".format(fidx, total_count))
 		plt.draw()
-
 
 
 def drawReconstructed(reconstructed, data, data_idx, truth):
@@ -112,6 +125,7 @@ def drawReconstructed(reconstructed, data, data_idx, truth):
 		ax1.set_title("True signal for {}".format(key), fontsize=17)
 		ax2.set_title("Reconstructed signal for {0}: {1} ~ {2}. err: {3:.2f}".format(key, data_idx[key][0], data_idx[key][-1], residual), fontsize=17)
 	plt.draw()
+
 
 def drawStatistics_comparison(statistics, hyp):
 
@@ -164,21 +178,20 @@ def drawStatistics_comparison(statistics, hyp):
 	plt.savefig(os.path.join(path, 'error_curve.png'), bbox_inches='tight')
 
 
-def drawCode(cbp_list, omp_list=None):
-	numOfwin = cbp_list.shape[0]
-	numOfelements = cbp_list.shape[1]
+def drawCode(omp_list):
+	""" Plots a dense code. """
+	numOfwin = omp_list.shape[0]
+	numOfelements = omp_list.shape[1]
 
 	fig, ax = plt.subplots(4,1,sharex=True, figsize=(10,10))
 
 	for idx in np.arange(numOfelements):
-		ax[idx].scatter(np.arange(numOfwin), cbp_list[:,idx], label='cbp', color='blue', marker='o', s=40)
-		ax[idx].scatter(np.arange(numOfwin), omp_list[:,idx], label='comp', color='red', marker='x', s=40)
-		ax[idx].set_title("Filter {} CBP total {} COMP total {}".format(idx, int(np.sum(cbp_list[:,idx])), int(np.sum(omp_list[:,idx]))))
+		ax[idx].scatter(np.arange(numOfwin), omp_list[:,idx], color='blue', marker='o', s=40)
+		ax[idx].set_title("Filter {} COMP total {}".format(idx, int(np.sum(omp_list[:,idx]))))
 		ax[idx].tick_params(axis='both', labelsize=14)
 		ax[idx].legend(fontsize=15)
 
-	ax[-1].scatter(np.arange(numOfwin), np.sum(cbp_list, 1), color='blue', marker='o', s=40)
-	ax[-1].scatter(np.arange(numOfwin), np.sum(omp_list, 1), color='red', marker='x', s=40)
+	ax[-1].scatter(np.arange(numOfwin), np.sum(omp_list, 1), color='blue', marker='o', s=40)
 	ax[-1].set_title('Total number')
 	ax[-1].tick_params(axis='both', labelsize=14)
 	plt.draw()

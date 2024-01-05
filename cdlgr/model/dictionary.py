@@ -13,7 +13,8 @@ class Dictionary:
         self.element_length = int(config["model"]["dictionary"]["element_length_ms"]*self.fs/1000)
         self.num_elements = config["model"]["dictionary"]["num_elements"]
 
-        print(f"Creating dictionary with {self.num_elements} elements of length {self.element_length} samples ({self.element_length/self.fs*1000} ms).")
+        if config["output"]["verbose"] > 0:
+            print(f"Creating dictionary with {self.num_elements} elements of length {self.element_length} samples ({self.element_length/self.fs*1000} ms).")
         np.random.seed(0)
         self.dictionary = np.random.rand(self.element_length, self.num_elements)
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
@@ -24,45 +25,53 @@ class Dictionary:
                  fs=self.fs)
 
     def initialize(self):
-        print("Initializing dictionary...")
+        if self.config["output"]["verbose"] > 0:
+            print("Initializing dictionary...")
 
         self.channel = self.config["dataset"]["channel"]
-        wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500,
-                                        mode="memory")
-        templates = wv.get_all_templates()
+        length_ms = self.config["dataset"].get("sources", {}).get("length_ms", None)
+        ms_before = length_ms/2 if length_ms is not None else 1.0
+        ms_after = length_ms/2 + 1000/self.fs if length_ms is not None else 2.0
+        wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500, ms_before=ms_before, ms_after=ms_after, mode="memory")
+        templates = wv.get_all_templates()  # Shape (num_units, num_samples, num_channels)
 
         # remove code duplication
         self.true_dictionary = np.zeros_like(self.dictionary)
         for i in range(templates.shape[0]):
-            # center with respect to the middle of the template
-            templates_center_idx = np.argmax(np.abs(templates[i, :, self.channel]))
-            half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
-            template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
-            if template_loc.shape[0] < self.element_length:
-                self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
+            if self.config["dataset"]["type"] == "synth":
+                self.true_dictionary[:, i] = templates[i, :, self.channel]
             else:
-                self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
+            # center with respect to the middle of the template
+                templates_center_idx = np.argmin(templates[i, :, self.channel])
+                half_length_template = min(templates_center_idx, templates.shape[1]-templates_center_idx-1)
+                template_loc = templates[i, templates_center_idx-half_length_template:templates_center_idx+half_length_template+1, self.channel]
+                if template_loc.shape[0] < self.element_length:
+                    self.true_dictionary[:, i] = np.pad(template_loc, (0, self.element_length - template_loc.shape[0]), 'constant')
+                else:
+                    self.true_dictionary[:, i] = template_loc[template_loc.shape[0]//2-self.element_length//2:template_loc.shape[0]//2+self.element_length//2+1]
         self.true_dictionary /= np.linalg.norm(self.true_dictionary, axis=0)
 
-        plt.figure(figsize=(10,5))
-        for i in range(templates.shape[0]):
-            plt.plot(templates[i, :, self.channel], label=f"Unit {i}")
-        plt.legend()
-        plt.savefig("templates.png")
-        plt.figure(figsize=(10,5))
-        for i in range(templates.shape[0]):
-            plt.plot(templates[i, :, self.channel]/np.linalg.norm(templates[i, :, self.channel]), label=f"Unit {i}")
-        plt.legend()
-        plt.savefig("templates-n.png")
+        if self.config["output"]["plot"] > 1:
+            plt.figure(figsize=(10,5))
+            for i in range(templates.shape[0]):
+                plt.plot(templates[i, :, self.channel], label=f"Unit {i}")
+            plt.legend()
+            plt.savefig("templates.png")
+        if self.config["output"]["plot"] > 0:
+            plt.figure(figsize=(10,5))
+            for i in range(templates.shape[0]):
+                plt.plot(templates[i, :, self.channel]/np.linalg.norm(templates[i, :, self.channel]), label=f"Unit {i}")
+            plt.legend()
+            plt.savefig("templates-n.png")
 
         if self.config["model"]["dictionary"]["init_templates"] == "real":
-            print("Initializing dictionary with real templates...")
+            if self.config["output"]["verbose"] > 0:
+                print("Initializing dictionary with real templates...")
             for i in range(min(self.num_elements, templates.shape[0])):
                 # plt.plot(templates[i, :, 0])
                 # print(templates.shape)
-                print(self.dictionary.shape)
                 if templates.shape[1] < self.element_length:
-                    self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.dictionary.element_length - templates.shape[1]), 'constant')
+                    self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.element_length - templates.shape[1]), 'constant')
                 else:
                     self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, self.channel]
             # plt.show()
@@ -70,7 +79,7 @@ class Dictionary:
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
     
-    def recovery_error_interp(self, iteration, numOfsubgrids):
+    def recovery_error_interp(self, iteration, numOfsubgrids, save_plots=True):
         """
 
         Compute the error between the corresponding columns of the two dictionaries.
@@ -103,18 +112,19 @@ class Dictionary:
 
         dico = Dictionary(self.dataset, self.config)
         dico.dictionary = dict1
-        dict1_interpolated, _ = dico.interpolate(numOfsubgrids)
+        dict1_interpolated, _ = dico.interpolate(numOfsubgrids, kind=self.config["model"]["cdl"]["interpolator_type"])
         numOfinterp = int(dict1_interpolated.shape[1]/filternum)
 
-        plt.close('all')
-        plt.figure()
-        for i in np.arange(filternum):
-            for j in np.arange(numOfinterp):
-                plt.plot(dict1_interpolated[:,i*numOfinterp+j], label=f"True {i} {j}")
-            plt.plot(dict2[:,i], label=f"Estimated {i}", linewidth=4)
-            plt.legend()
-            plt.savefig(f"dictionary-i2-{iteration:03}-{i:03}.png")
-        plt.close('all')
+        # if save_plots:
+        #     plt.close('all')
+        #     plt.figure()
+        #     for i in np.arange(filternum):
+        #         for j in np.arange(numOfinterp):
+        #             plt.plot(dict1_interpolated[:,i*numOfinterp+j], label=f"True {i} {j}")
+        #         plt.plot(dict2[:,i], label=f"Estimated {i}", linewidth=4)
+        #         plt.legend()
+        #         plt.savefig(f"dictionary-i2-{iteration:03}-{i:03}.png")
+        #     plt.close('all')
 
         indices = np.zeros(filternum, dtype=int)
         for i in np.arange(filternum):
@@ -136,19 +146,21 @@ class Dictionary:
             err_distance[i] = np.sqrt(diff)
             indices[i] = idx
 
-            plt.figure(figsize=(10,5))
-            times = np.arange(dict2.shape[0])/self.fs
-            # plt.plot(times,dict1_interpolated[:,i*numOfinterp+idx], label="True")
-            plt.plot(times-idx/numOfinterp/self.fs,dict1_interpolated[:,i*numOfinterp+idx], label="True", marker='x')
-            plt.plot(times, dict2[:,i], label="Estimated", marker='+') 
-            plt.xlabel("Time")
-            plt.ylabel("Amplitude (normalized)")
-            plt.title(f"Element {i} - Error {err_distance[i]:.3f}")
-            plt.legend()
-            plt.savefig(f"dictionary-i-{iteration:03}-{i:03}.png")            
+            if save_plots:
+                if self.config["output"]["plot"] > 1:
+                    plt.figure(figsize=(10,5))
+                    times = np.arange(dict2.shape[0])/self.fs
+                    # plt.plot(times,dict1_interpolated[:,i*numOfinterp+idx], label="True")
+                    plt.plot(times-idx/numOfinterp/self.fs,dict1_interpolated[:,i*numOfinterp+idx], label="True", marker='x')
+                    plt.plot(times, dict2[:,i], label="Estimated", marker='+') 
+                    plt.xlabel("Time")
+                    plt.ylabel("Amplitude (normalized)")
+                    plt.title(f"Element {i} - Error {err_distance[i]:.3f} - Best offset {o_max}")
+                    plt.legend()
+                    plt.savefig(f"dictionary-i-{iteration:03}-{i:03}.png")            
         return err_distance, indices
     
-    def recovery_error(self, iteration):
+    def recovery_error(self, iteration, save_plots=True):
 
         """
         Compute the error between the corresponding columns of the two dictionaries.
@@ -184,12 +196,13 @@ class Dictionary:
 
             err_distance[i] = np.sqrt(diff)
 
-            plt.figure(figsize=(10,5))
-            plt.plot(dict1[:,i], label="True", marker='x')
-            plt.plot(dict2[:,i], label="Estimated", marker='+')
-            plt.title(f"Element {i} - Error {err_distance[i]}")
-            plt.legend()
-            plt.savefig(f"dictionary-{iteration:03}-{i:03}.png")            
+            if save_plots and (self.config["output"]["plot"] > 1 or (self.config["output"]["plot"] == 1 and iteration == -1)):
+                plt.figure(figsize=(10,5))
+                plt.plot(dict1[:,i], label="True", marker='x')
+                plt.plot(dict2[:,i], label="Estimated", marker='+')
+                plt.title(f"Element {i} - Error {err_distance[i]}")
+                plt.legend()
+                plt.savefig(f"dictionary-{iteration:03}-{i:03}.png")            
 
 
         return err_distance
@@ -288,7 +301,8 @@ class Dictionary:
 
                         y_extracted_set[key] = residual[patch_indices].reshape((self.element_length,-1), order='F')
 
-            print("Updating Filter {}".format(base_fidx))
+            if self.config["output"]["verbose"] > 0:
+                print("Updating Filter {}".format(base_fidx))
 
             ##############################
             # Update the filters
@@ -401,7 +415,8 @@ class Dictionary:
         if numOfsubgrids<=1:
             return self.dictionary, interpolator
 
-        print("Interpolating with 1/{} sub-grid".format(numOfsubgrids))
+        if self.config["output"]["verbose"] > 0:
+            print("Interpolating with 1/{} sub-grid".format(numOfsubgrids))
 
         interval = 1/numOfsubgrids
         delay_arr = np.arange(interval, 1, interval)
@@ -465,10 +480,3 @@ class Dictionary:
         # self.dictionary = d_interpolated
 
         return d_interpolated, interpolator
-    
-    def plot(self, iteration):
-        plt.figure(figsize=(10,5))
-        for i in range(self.num_elements):
-            plt.plot(self.dictionary[:,i], label=f"Element {i}")
-        plt.legend()
-        plt.savefig(f"dictionary-{iteration:03}.png")
