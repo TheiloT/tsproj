@@ -4,6 +4,7 @@
 experiments/d533101/
 experiments/smlm/
 notebooks
+outputs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
