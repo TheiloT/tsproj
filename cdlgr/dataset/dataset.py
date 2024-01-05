@@ -119,8 +119,8 @@ def get_dataset(config: DictConfig):
             print("Preprocessing recording...")
         recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
         recording = si.common_reference(recording, reference='global')
-        recording = si.whiten(recording, int_scale=200,
-                                chunk_size=1000)
+        # recording = si.whiten(recording, int_scale=200,
+        #                         chunk_size=1000)
     
     return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
         
