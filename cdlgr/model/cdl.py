@@ -15,6 +15,8 @@ import json
 from itertools import permutations
 from copy import deepcopy
 
+from cdlgr.plot.plot import plot_reconstructed, plot_firing
+
 
 class CDL:
     def __init__(self, dictionary, config):
@@ -32,6 +34,9 @@ class CDL:
         if self.config["output"]["verbose"] > 0:
             print("Splitting traces...")                
         self.channel = self.config["dataset"]["channel"]
+        
+        fs = self.config["dataset"].get("fs", None)
+        fs = fs if fs is not None else self.dictionary.dataset.recording.get_sampling_frequency()
 
         if self.config["output"]["verbose"] > 0:
             print("\tRetrieving traces...")
@@ -50,8 +55,10 @@ class CDL:
         
         if self.config["output"]["plot"] > 0:
             plt.figure()
-            plt.plot(traces)
-            plt.savefig("traces.png")
+            plt.plot(np.arange(traces.shape[0])/fs, traces)
+            plt.xlabel("Time (s)")
+            plt.title("Train signal traces")
+            plt.savefig("train_traces.png")
 
         if self.config["dataset"]["window"]["split"]:
             detect_threshold = 5
@@ -62,8 +69,7 @@ class CDL:
             peaks = pd.DataFrame(peaks)
             peaks = peaks[peaks["channel_index"] == self.channel]
 
-            peak_size = 110 # even
-            peak_size = int(self.config["dataset"]["window"]["window_size_s"] * self.dictionary.dataset.recording.get_sampling_frequency())
+            peak_size = int(self.config["dataset"]["window"]["window_size_s"] * fs)
             half_size = peak_size // 2
             traces_seg = {}
             recording_length = self.dictionary.dataset.recording.get_num_frames()
@@ -201,7 +207,7 @@ class CDL:
         sparse_coeffs = {}
         for j in tqdm(traces_seg.keys(), disable=self.config["output"]["verbose"] == 0):
             sparse_coeffs[j] = self.code_sparse(
-                    self.csc_old(
+                    self.csc(
                         traces_seg[j], interpolated_dict, sparsity=None, boundary=True
                     ), interpolated_dict
                 )     
@@ -220,7 +226,37 @@ class CDL:
         with open(f"sparse_coeffs-{mode}.json", "w") as f:
             json.dump(sp, f, indent=4)
 
-    def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict, sorting_true, mode="split", label="train"):       
+    def get_distance_to_min_diff_unit(self, spike_idx, sorting_true):
+        min_diff = np.inf
+        min_diff_unit = None
+        for unit in sorting_true.unit_ids:
+            spikes_idxes = sorting_true.get_unit_spike_train(unit_id=unit)
+            min_diff_true = np.abs(spikes_idxes - spike_idx).min()
+            if min_diff_true < min_diff:
+                min_diff = min_diff_true
+                min_diff_unit = unit
+        return min_diff, min_diff_unit
+
+    def reconstruct(self, traces_seg, sparse_coeffs, interpolated_dict, sorting_true, mode="split", label="train"):
+        """
+        Reconstruct the signal from the sparse coefficients.
+        
+        Inputs
+        ======
+        traces_seg: dictionary
+            Each key represents a segment
+            The corresponding value is a 1-D array
+        sparse_coeffs: dictionary
+            Each key represents the start sample of a segment
+            The corresponding value is a sparse code; see code_sparse
+        interpolated_dict: 2-D array
+            Each column represents a filter
+        sorting_true: spikeinterface.SortingExtractor
+            Ground truth sorting
+        mode: string
+            split: split the signal into segments
+            whole: reconstruct the whole signal
+        """
         spikes = pd.DataFrame(sorting_true.to_spike_vector(concatenated=True))
         if self.config["output"]["verbose"] > 1:
             print(spikes)
@@ -233,40 +269,41 @@ class CDL:
 
         reconstructed = np.zeros((N_seg, seg_size + interpolated_dict.shape[0] - 1))
         reconstructed_final = np.zeros((N_seg, seg_size))
-        for k_idx, k in enumerate(sparse_coeffs.keys()): 
+        
+        for seg_nb, seg_idx in enumerate(sparse_coeffs.keys()):
             active_i = []
             idxes = []
             amps = []
-            for i in sparse_coeffs[k].keys():            
-                for j, idx in enumerate(sparse_coeffs[k][i]["idx"]):
-                    if idx > seg_size:
-                        warnings.warn(f"idx {idx} larger than seg_size {seg_size}")
+            for atom_i in sparse_coeffs[seg_idx].keys():            
+                for firing_nb, firing_idx in enumerate(sparse_coeffs[seg_idx][atom_i]["idx"]):
+                    if firing_idx > seg_size:
+                        warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
                         print("WARNING segment_size")
                         continue
-                    if i not in active_i or mode != "split":
-                        active_i.append(i)    
-                        idxes.append(idx)
-                        amps.append(sparse_coeffs[k][i]["amp"][j])
+                    if atom_i not in active_i or mode != "split":
+                        active_i.append(atom_i)    
+                        idxes.append(firing_idx)
+                        amps.append(sparse_coeffs[seg_idx][atom_i]["amp"][firing_nb])
                     else:
                         if self.config["output"]["verbose"] > 0:
                             print("Atom already active")                    
-                    reconstructed[k_idx, idx : idx + len(interpolated_dict[:, i])] += (
-                        sparse_coeffs[k][i]["amp"][j] * interpolated_dict[:, i]
+                    reconstructed[seg_nb, firing_idx : firing_idx + len(interpolated_dict[:, atom_i])] += (
+                        sparse_coeffs[seg_idx][atom_i]["amp"][firing_nb] * interpolated_dict[:, atom_i]
                     )
-            reconstructed_final[k_idx, :] = reconstructed[k_idx, :][interpolated_dict.shape[0] - 1:]
+            reconstructed_final[seg_nb, :] = reconstructed[seg_nb, :][interpolated_dict.shape[0] - 1:]
 
             active_atoms = []
-            for idx, i in enumerate(active_i):
+            for idx, atom_i in enumerate(active_i):
                 if self.interpolate != 0:
-                    active_atoms.append(i//self.interpolate)
+                    active_atoms.append(atom_i//self.interpolate)
                 else:
-                    active_atoms.append(i) 
+                    active_atoms.append(atom_i) 
 
                 if mode == "split":
-                    spikes_sorting.loc[k_idx] = [k, active_atoms[-1], amps[idx], 0]
+                    spikes_sorting.loc[seg_nb] = [seg_idx, active_atoms[-1], amps[idx], 0]
                 else:
-                    reconstructed_part = reconstructed[k_idx, idxes[idx]:idxes[idx]+self.dictionary.element_length*2]
-                    original_part = traces_seg[k][idxes[idx]-self.dictionary.element_length:idxes[idx]+self.dictionary.element_length]
+                    reconstructed_part = reconstructed[seg_nb, idxes[idx]:idxes[idx]+self.dictionary.element_length*2]
+                    original_part = traces_seg[seg_idx][idxes[idx]-self.dictionary.element_length:idxes[idx]+self.dictionary.element_length]
                     normalized_reconstructed = reconstructed_part/np.linalg.norm(reconstructed_part)
                     normalized_original = original_part/np.linalg.norm(original_part)
 
@@ -276,32 +313,20 @@ class CDL:
 
                     error = np.sqrt(1-np.dot(normalized_reconstructed, normalized_original)**2)
                     spikes_sorting.loc[len(spikes_sorting)] = [idxes[idx]-self.dictionary.element_length//2, active_atoms[-1], amps[idx], error]
-                
-            spike_idx = spikes_sorting["sample_index"].values[-1]
-            min_diff = np.inf
-            min_diff_unit = None
-            for unit in sorting_true.unit_ids:
-                spikes_idxes = sorting_true.get_unit_spike_train(unit_id=unit)
-                min_diff_true = np.abs(spikes_idxes - spike_idx).min()
-                if min_diff_true < min_diff:
-                    min_diff = min_diff_true
-                    min_diff_unit = unit
+            
+            if spikes_sorting["sample_index"].values.shape[0] > 0:
+                spike_idx = spikes_sorting["sample_index"].values[-1]
+                min_diff, min_diff_unit = self.get_distance_to_min_diff_unit(spike_idx, sorting_true)
+            else:
+                min_diff = np.inf
+                min_diff_unit = None                    
                     
-            if (k_idx < 10) or min_diff > 15:
+            if (seg_nb < 10) or min_diff > 15:
                 if self.config["output"]["plot"] > 1:
-                    plt.close('all')
-                    plt.figure()
-                    plt.plot(traces_seg[k][:], label="original", marker="x")
-                    plt.plot(reconstructed_final[k_idx, :], label="reconstructed", marker="+")
-                    plt.xlabel("Sample")
-                    plt.ylabel("Amplitude (a. u.)")
-                    plt.legend()
-                    plt.title(f"Active filters: {active_atoms} - interpolated {active_i}, unit {min_diff_unit}: dist {min_diff}")
-                    plt.savefig(f"reconstructed_{k_idx}_{k}_{label}.png")
-                    plt.close()
+                    plot_reconstructed(traces_seg, seg_idx, reconstructed_final, seg_nb, active_atoms, active_i, min_diff, min_diff_unit, label)
             else:
                 if self.config["output"]["plot"] > 1:
-                    print("\rNot saving spike {}/{}".format(k_idx, total_number_of_spikes), end="")
+                    print("\rNot saving spike {}/{}".format(seg_nb, total_number_of_spikes), end="")
         if self.config["output"]["verbose"] > 0:
             print()
 
@@ -331,7 +356,6 @@ class CDL:
 
             spikes_sorting = pd.concat(sub_spike_sortings)            
 
-        # spikes_sorting.drop(labels="amplitude", axis=1, inplace=True)
         spikes_sorting["sample_index"] = spikes_sorting["sample_index"].astype(int)
         spikes_sorting["unit_index"] = spikes_sorting["unit_index"].astype(int)
 
@@ -342,6 +366,7 @@ class CDL:
         length_ms = self.config["dataset"].get("sources", {}).get("length_ms", None)
         delta_time = length_ms if length_ms is not None else 4  # in ms
         fs = self.config["dataset"].get("fs", None)
+        fs = fs if fs is not None else self.dictionary.dataset.recording.get_sampling_frequency()
         cmp = sc.compare_sorter_to_ground_truth(sorting_true, sorting_cdlgr, exhaustive_gt=True, delta_time=delta_time, sampling_frequency=fs)
         if self.config["output"]["verbose"] > 0:
             print(cmp.get_confusion_matrix())
@@ -352,6 +377,8 @@ class CDL:
             print(cmp.match_score)
 
         perf = cmp.get_performance()
+        perf.to_csv(f"perf-{label}.csv")
+
         if self.config["output"]["plot"] > 1:
             plt.close('all')
             fig1, ax1 = plt.subplots()
@@ -370,20 +397,107 @@ class CDL:
             sw.plot_confusion_matrix(cmp)
             plt.tight_layout()
             plt.savefig(f"confusion_matrix-{label}.png")
-
-        # optimization: add term to have different templates
-
-        # reconstructed = reconstructed[interpolated_dict.shape[0] - 1:]
         
-        # plt.figure()
-        # plt.plot(traces, label="original")
-        # plt.plot(reconstructed, label="reconstructed")
-        # plt.legend()
-        # plt.savefig("reconstructed.png")
-
+        # Find true and false positives
+        def plot_one_firing(firings, ftype):
+            found = False
+            for seg_nb, seg_idx in enumerate(firings.keys()):
+                for unit in firings[seg_idx].keys():
+                    if len(firings[seg_idx][unit]) > 0:
+                        firing = firings[seg_idx][unit][0]
+                        sample_win = int(self.config["output"]["fp_threshold_ms"]/1000 * fs)
+                        plot_firing(traces_seg, seg_idx, reconstructed_final, seg_nb, unit, firing["firing_idx"], firing["closest_atom"], sample_win, ftype, label)
+                        found = True
+                        if self.config["output"]["verbose"] > 0:
+                            print(f"{ftype} spike found.")
+                        break
+                if found:
+                    break
+            if not found and self.config["output"]["verbose"] > 0:
+                print(f"No {ftype} spike found.")
+        
+        if self.config["output"]["plot"] > 1:
+            if self.config["output"]["verbose"] > 0:
+                print("Finding good detections and false positives...")
+            true_positives, false_positives = self.find_good_and_bad_firings(traces_seg, sparse_coeffs, sorting_true, mode)
+            plot_one_firing(true_positives, "TP")
+            plot_one_firing(false_positives, "FP")
+            
         return reconstructed
+    
+    def find_good_and_bad_firings(self, traces_seg, sparse_coeffs, sorting_true, mode="split"):
+        """
+        Find well detected spikes and false positives
+        
+        Inputs
+        ======
+        traces_seg: dictionary
+            Each key represents a segment
+            The corresponding value is a 1-D array
+        sparse_coeffs: dictionary
+            Each key represents the start sample of a segment
+            The corresponding value is a sparse code; see code_sparse
+        interpolated_dict: 2-D array
+            Each column represents a filter
+        sorting_true: spikeinterface.SortingExtractor
+            Ground truth sorting
+        mode: string
+            split: split the signal into segments
+            whole: reconstruct the whole signal
+        
+        Returns
+        =======
+        true_positives: dictionary
+            Each key represents a segment.
+            The corresponding value is a dictionary.
+                Each key represents a unit.
+                The corresponding value is the list of dictionaries (firing_sample_idx, closest_unit) for each good detection of that unit.
+        false_positives: dictionary
+            Each key represents a segment.
+            The corresponding value is a dictionary.
+                Each key represents a unit.
+                The corresponding value is the list of (firing_sample_idx, closest_unit) for each false positive of that unit.
+        """
+        seg_size = traces_seg[list(traces_seg.keys())[0]].shape[0]
+        fs = self.config["dataset"].get("fs", None)
+        fs = fs if fs is not None else self.dictionary.dataset.recording.get_sampling_frequency()
 
-
+        false_positives = {}
+        true_positives = {}
+        
+        for seg_idx in sparse_coeffs.keys():
+            false_positives[seg_idx] = {i:[] for i in range(self.dictionary.num_elements)}
+            true_positives[seg_idx] = {i:[] for i in range(self.dictionary.num_elements)}
+            for atom_i in sparse_coeffs[seg_idx].keys():
+                atom = atom_i // self.interpolate if self.interpolate != 0 else atom_i
+                for firing_idx in sparse_coeffs[seg_idx][atom_i]["idx"]:
+                    if firing_idx > seg_size:
+                        warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
+                        print("WARNING segment_size")
+                        continue
+                    if mode == "whole":
+                        idx = firing_idx
+                    elif mode == "split":
+                        idx = seg_idx + firing_idx
+                    else:
+                        raise ValueError("Mode not supported")
+                    spike_idx = idx
+                    min_diff, min_diff_unit = self.get_distance_to_min_diff_unit(spike_idx, sorting_true)
+                    if min_diff > (self.config["output"]["fp_threshold_ms"]/1000 * fs):
+                        min_diff, min_diff_unit = None, None
+                    if (min_diff_unit != atom):
+                        false_positives[seg_idx][atom].append({
+                            "firing_idx": firing_idx,  # Firing sample idx within the segment
+                            "closest_atom": min_diff_unit
+                            })
+                    else:
+                        true_positives[seg_idx][atom].append({
+                            "firing_idx": firing_idx,  # Firing sample idx within the segment
+                            "closest_atom": min_diff_unit
+                            })
+                     
+        return true_positives, false_positives
+                
     def code_sparse(self, dense_coeffs, interpolated_dict):
         """
         Sparse representation of the dense coeffs
@@ -401,17 +515,13 @@ class CDL:
                 First row: Nonzero indices
                 Second row: Ampltiudes corresponding to nonzero indices
         """
-
         numOfelements = interpolated_dict.shape[1]
 
         sparse_coeffs = {}
         clen = len(dense_coeffs) // numOfelements
-        # print(len(dense_coeffs))
-        # print(numOfelements)
-        # print(clen)
+
         for fidx in np.arange(numOfelements):
             indices = np.nonzero(dense_coeffs[fidx * clen : (fidx + 1) * clen])[0]
-            # print(indices)
 
             temp = {}
             # If no nonzero components
@@ -424,14 +534,12 @@ class CDL:
                 temp["amp"] = dense_coeffs[indices + fidx * clen]
                 sparse_coeffs[fidx] = temp
 
-        # print(sparse_coeffs)
-
         return sparse_coeffs
 
     def terminate_csc(self, numOfiter, numOfmaxcoeffs, err_residual, err_bound):
         return (err_residual < err_bound) or (numOfiter >= numOfmaxcoeffs)
 
-    def csc_old(self, y_seg, dictionary, sparsity=None, err=None, boundary=True):
+    def csc(self, y_seg, dictionary, sparsity=None, err=None, boundary=True):
         """
         Given data segment, extract convolutional codes
 

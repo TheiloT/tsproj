@@ -77,7 +77,6 @@ class Dictionary:
             # plt.show()
 
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
-
     
     def recovery_error_interp(self, iteration, numOfsubgrids, save_plots=True):
         """
@@ -102,7 +101,7 @@ class Dictionary:
         assert(np.shape(dict1)==np.shape(dict2)), "Dictionaries are of different dim!"
         filternum = np.shape(dict1)[1]
 
-        offset = 5 # why 5?
+        offset = (self.element_length - 1) // 2
         offsets = np.arange(-offset,offset+1,dtype=int)
 
         err_distance = np.zeros(filternum)
@@ -115,49 +114,34 @@ class Dictionary:
         dict1_interpolated, _ = dico.interpolate(numOfsubgrids, kind=self.config["model"]["cdl"]["interpolator_type"])
         numOfinterp = int(dict1_interpolated.shape[1]/filternum)
 
-        # if save_plots:
-        #     plt.close('all')
-        #     plt.figure()
-        #     for i in np.arange(filternum):
-        #         for j in np.arange(numOfinterp):
-        #             plt.plot(dict1_interpolated[:,i*numOfinterp+j], label=f"True {i} {j}")
-        #         plt.plot(dict2[:,i], label=f"Estimated {i}", linewidth=4)
-        #         plt.legend()
-        #         plt.savefig(f"dictionary-i2-{iteration:03}-{i:03}.png")
-        #     plt.close('all')
-
         indices = np.zeros(filternum, dtype=int)
-        for i in np.arange(filternum):
-            diff = 1
-            idx = 0
-            o_max = 0
-            for j in np.arange(numOfinterp):
-                temp = []
+        for unit in np.arange(filternum):
+            estimated_dict = dict2[:,unit]/np.linalg.norm(dict2[:,unit])
+            best_offset, min_dist = None, np.infty
+            for j in range(numOfinterp):
+                interpolated_gt = dict1_interpolated[:,unit*numOfinterp+j]/np.linalg.norm(dict1_interpolated[:,unit*numOfinterp+j])
                 for o in offsets:
-                    temp.append(np.dot(np.roll(dict1_interpolated[:,i*numOfinterp+j],o),dict2[:,i]))
-
-                temp_diff = 1-np.power(np.max(temp), 2)
-
-                if temp_diff<diff:
-                    idx = j
-                    o_max = np.argmax(temp)
-                    diff = temp_diff
-
-            err_distance[i] = np.sqrt(diff)
-            indices[i] = idx
-
+                    dist = np.sqrt(1-np.power(np.dot(np.roll(interpolated_gt,o),estimated_dict),2))
+                    if dist<min_dist:
+                        min_dist = dist
+                        indices[unit] = j
+                        best_offset = o
+            err_distance[unit] = min_dist
+            
             if save_plots:
-                if self.config["output"]["plot"] > 1:
-                    plt.figure(figsize=(10,5))
-                    times = np.arange(dict2.shape[0])/self.fs
-                    # plt.plot(times,dict1_interpolated[:,i*numOfinterp+idx], label="True")
-                    plt.plot(times-idx/numOfinterp/self.fs,dict1_interpolated[:,i*numOfinterp+idx], label="True", marker='x')
-                    plt.plot(times, dict2[:,i], label="Estimated", marker='+') 
-                    plt.xlabel("Time")
-                    plt.ylabel("Amplitude (normalized)")
-                    plt.title(f"Element {i} - Error {err_distance[i]:.3f} - Best offset {o_max}")
-                    plt.legend()
-                    plt.savefig(f"dictionary-i-{iteration:03}-{i:03}.png")            
+                idx = indices[unit]
+                interpolated_gt = dict1_interpolated[:,unit*numOfinterp+idx]/np.linalg.norm(dict1_interpolated[:,unit*numOfinterp+idx])
+                plt.figure(figsize=(10,5))
+                times = np.arange(dict2.shape[0])/self.fs
+                true_label = "True" if self.config["model"]["cdl"]["interpolate"] == "0" else fr"True (interpolated by ${idx}\times\Delta_K$)"
+                plt.plot(times, np.roll(dict1_interpolated[:,unit*numOfinterp+idx],best_offset), label=true_label, marker='x')
+                plt.plot(times, estimated_dict, label="Estimated", marker='+') 
+                plt.xlabel("Time")
+                plt.ylabel("Amplitude (normalized)")
+                plt.title(f"Element {unit} - Error {err_distance[unit]:.3f} - Best offset {-best_offset}")
+                plt.legend()
+                plt.savefig(f"dictionary-i-{iteration:03}-{unit:03}.png")
+        
         return err_distance, indices
     
     def recovery_error(self, iteration, save_plots=True):

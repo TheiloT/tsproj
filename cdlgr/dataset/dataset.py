@@ -30,7 +30,6 @@ def get_dataset(config: DictConfig):
         if "uri" in config["dataset"]:
             uri = config["dataset"]["uri"]
             all_recordings = sf.load_spikeforest_recordings(uri)
-            # pprint([(all_recording.study_name, all_recording.recording_name) for all_recording in all_recordings])
             dataset_raw = [R for R in all_recordings if R.study_name == config["dataset"]["name"] and R.recording_name == config["dataset"]["recording"]][0]
         else:
             dataset_raw = sf.load_spikeforest_recording(study_name=config["dataset"]["name"],
@@ -62,18 +61,14 @@ def get_dataset(config: DictConfig):
             print('Channel locations:')
             print('X:', recording.get_channel_locations()[:, 0].T)
             print('Y:', recording.get_channel_locations()[:, 1].T)
+        
+        recording_test, sorting_test = subset_data(config, recording, sorting_true, t_start_test, t_stop_test, "test")
+        recording, sorting_true = subset_data(config, recording, sorting_true, t_start, t_stop, "training")
 
     elif type_dataset == "synth":
         ####################################
         # Generate data as in the paper
         ####################################
-        # Noise
-        # noise_start = config["dataset"]["gen"]["noise"]["start"]
-        # noise_end = config["dataset"]["gen"]["noise"]["stop"]
-        # noise_step = config["dataset"]["gen"]["noise"]["step"]
-        # noise_vars = np.arange(noise_start, noise_end+noise_step-0.001, noise_step)
-        # noise_vars = [round(noise,3) for noise in noise_vars]
-        
         # Define dictionaries
         num_sources = config["dataset"]["sources"]["num"]
         filter_length = config["dataset"]["sources"]["length_ms"]/1000
@@ -93,47 +88,31 @@ def get_dataset(config: DictConfig):
         if config["output"]["verbose"] > 0:
             print("Noise ", config["dataset"]["gen"]["noise"])
             print("Generating data")
-        truth, event_indices = generate_Simulated_continuous(config, numOfevents, T, fs, dictionary, filter_length, amps, seed=generation_seed)
         if generation_seed is not None:
             np.random.seed(generation_seed)
-        signal = truth + config["dataset"]["gen"]["noise"]*np.random.randn(T*fs)
-        np.random.seed(int(time()))
+        truth_train, event_indices_train = generate_Simulated_continuous(config, numOfevents, T, fs, dictionary, filter_length, amps)
+        truth_test, event_indices_test = generate_Simulated_continuous(config, numOfevents, T, fs, dictionary, filter_length, amps)
+        signal_train = truth_train + config["dataset"]["gen"]["noise"]*np.random.randn(T*fs)
+        signal_test = truth_test + config["dataset"]["gen"]["noise"]*np.random.randn(T*fs)
+        if generation_seed is not None:
+            np.random.seed(int(time()))
 
-        # print("Saving data to", folder_name)
-        # filename = os.path.join(PATH, 'experiments', folder_name, 'data','T_{}_noise_{}_num_{}_{}.hdf5'.format(T,noisevar, config_d['numOfevents'], i))
-        # with h5py.File(filename,'w') as f:
-        #     # dset = f.create_dataset("data", data = signal[:-1])
-        #     dset = f.create_dataset("data", data = signal)
-        #     dset.attrs['fs'] = fs
-        #     dset.attrs['T'] = config_d['T']
-        #     dset.attrs['numSources'] = config_d['numSources']
-        #     dset.attrs['numOfevents'] = config_d['numOfevents']
-        #     dset.attrs['indices'] = event_indices
-        #     dset.attrs['noisevar'] = noisevar
-        #     dset.attrs['amps'] = amps
-        #     dset.attrs['filter_length'] = config_d['filter_length']
         if config["output"]["verbose"] > 0:
             print("\nData generated")
-        
         
         ####################################
         # Convert to a spikeinterface BaseRecording
         ####################################
         # Recording
-        traces = np.expand_dims(signal, axis=1)
-        recording = se.NumpyRecording(traces_list=[traces], sampling_frequency=fs)
-        recording.set_dummy_probe_from_locations(np.zeros((1, 2)))  # Dummy probe with 1 channel and dimension 2
-        recording.annotate(is_filtered=True)  # Perform no pre-processing on this dataset
+        recording_train = get_recording_from_signal(signal_train, fs)
+        recording_test = get_recording_from_signal(signal_test, fs)
         
         # Sorting
-        times = (fs*(event_indices.flatten() + filter_length/2)).astype(int)
-        labels = np.zeros(num_sources * numOfevents, dtype=int)
-        for i in range(num_sources):
-            labels[i*numOfevents:(i+1)*numOfevents] = i
-        sorting_true = se.NumpySorting.from_times_labels([times], [labels], fs)
+        sorting_train = get_sorting_from_events(event_indices_train, fs, filter_length, num_sources, numOfevents)
+        sorting_test = get_sorting_from_events(event_indices_test, fs, filter_length, num_sources, numOfevents)
         
-    recording_test, sorting_test = subset_data(config, recording, sorting_true, t_start_test, t_stop_test, "test")
-    recording, sorting_true = subset_data(config,recording, sorting_true, t_start, t_stop, "training")
+        recording_test, sorting_test = subset_data(config, recording_train, sorting_train, t_start_test, t_stop_test, "test")
+        recording, sorting_true = subset_data(config, recording_test, sorting_test, t_start, t_stop, "training")
 
     if config["dataset"]["preprocess"] and config["dataset"]["type"] != "synth":
         if config["output"]["verbose"] > 0:
@@ -146,7 +125,23 @@ def get_dataset(config: DictConfig):
     return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
         
 
-def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictionary, filter_length, amps=[0,1], seed=None):
+def get_recording_from_signal(signal, fs):
+    traces = np.expand_dims(signal, axis=1)
+    recording = se.NumpyRecording(traces_list=[traces], sampling_frequency=fs)
+    recording.set_dummy_probe_from_locations(np.zeros((1, 2)))  # Dummy probe with 1 channel and dimension 2
+    recording.annotate(is_filtered=True)  # Perform no pre-processing on this dataset
+    return recording
+    
+    
+def get_sorting_from_events(event_indices, fs, filter_length, num_sources, numOfevents):
+    times = (fs*(event_indices.flatten() + filter_length/2)).astype(int)
+    labels = np.zeros(num_sources * numOfevents, dtype=int)
+    for i in range(num_sources):
+        labels[i*numOfevents:(i+1)*numOfevents] = i
+    return se.NumpySorting.from_times_labels([times], [labels], fs)
+
+
+def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictionary, filter_length, amps=[0,1]):
     """
     Generate continuous data and its sampled version.
     For now, assume that we know the templates. These templates start from -5 to 5
@@ -171,9 +166,6 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
     """
     assert(len(amps)==2 and amps[0]<amps[1]), "Wrong amplitude arguments"
 
-    if seed is not None:
-        np.random.seed(seed)
-    
     numOfelements = len(dictionary.keys())
 
     signal = np.zeros(T*fs)
@@ -217,7 +209,7 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
         events_indices[fidx,:] = events_idx
 
         # Signal generation
-        for idx, event_timestamp in enumerate(events_idx):
+        for event_timestamp in events_idx:
             start_sample = 0
             amp = np.random.uniform(amps[0], amps[1])
 
@@ -238,8 +230,6 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
                 if point>maxamp:
                     maxamp = point
             signal[start_sample : start_sample + filter_length_in_samples] += filter_realization/maxamp*amp
-            
-    np.random.seed(int(time()))
             
     return signal, events_indices
 
