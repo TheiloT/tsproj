@@ -86,7 +86,6 @@ def get_dataset(config: DictConfig):
         generation_seed = config["dataset"]["gen"]["seed"]
         
         if config["output"]["verbose"] > 0:
-            print("Noise ", config["dataset"]["gen"]["noise"])
             print("Generating data")
         if generation_seed is not None:
             np.random.seed(generation_seed)
@@ -98,7 +97,7 @@ def get_dataset(config: DictConfig):
             np.random.seed(int(time()))
 
         if config["output"]["verbose"] > 0:
-            print("\nData generated")
+            print("Data generated")
         
         ####################################
         # Convert to a spikeinterface BaseRecording
@@ -113,6 +112,9 @@ def get_dataset(config: DictConfig):
         
         recording_test, sorting_test = subset_data(config, recording_train, sorting_train, t_start_test, t_stop_test, "test")
         recording, sorting_true = subset_data(config, recording_test, sorting_test, t_start, t_stop, "training")
+        
+        if config["output"]["verbose"] > 0:
+            print()
 
     if config["dataset"]["preprocess"] and config["dataset"]["type"] != "synth":
         if config["output"]["verbose"] > 0:

@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import scipy
 import spikeinterface.full as si
 from cdlgr.dataset.dataset import Dataset
+from cdlgr.outputs.plot import plot_template_and_truth, plot_template_and_truth_interp, plot_templates
 
 class Dictionary:
     def __init__(self, dataset, config):
@@ -52,29 +53,18 @@ class Dictionary:
         self.true_dictionary /= np.linalg.norm(self.true_dictionary, axis=0)
 
         if self.config["output"]["plot"] > 1:
-            plt.figure(figsize=(10,5))
-            for i in range(templates.shape[0]):
-                plt.plot(templates[i, :, self.channel], label=f"Unit {i}")
-            plt.legend()
-            plt.savefig("templates.png")
+            plot_templates(templates, self.fs, self.channel, normalized=False)
         if self.config["output"]["plot"] > 0:
-            plt.figure(figsize=(10,5))
-            for i in range(templates.shape[0]):
-                plt.plot(templates[i, :, self.channel]/np.linalg.norm(templates[i, :, self.channel]), label=f"Unit {i}")
-            plt.legend()
-            plt.savefig("templates-n.png")
+            plot_templates(templates, self.fs, self.channel, normalized=True)
 
         if self.config["model"]["dictionary"]["init_templates"] == "real":
             if self.config["output"]["verbose"] > 0:
                 print("Initializing dictionary with real templates...")
             for i in range(min(self.num_elements, templates.shape[0])):
-                # plt.plot(templates[i, :, 0])
-                # print(templates.shape)
                 if templates.shape[1] < self.element_length:
                     self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.element_length - templates.shape[1]), 'constant')
                 else:
                     self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, self.channel]
-            # plt.show()
 
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
     
@@ -130,17 +120,10 @@ class Dictionary:
             
             if save_plots:
                 idx = indices[unit]
-                interpolated_gt = dict1_interpolated[:,unit*numOfinterp+idx]/np.linalg.norm(dict1_interpolated[:,unit*numOfinterp+idx])
-                plt.figure(figsize=(10,5))
-                times = np.arange(dict2.shape[0])/self.fs
-                true_label = "True" if self.config["model"]["cdl"]["interpolate"] == "0" else fr"True (interpolated by ${idx}\times\Delta_K$)"
-                plt.plot(times, np.roll(dict1_interpolated[:,unit*numOfinterp+idx],best_offset), label=true_label, marker='x')
-                plt.plot(times, estimated_dict, label="Estimated", marker='+') 
-                plt.xlabel("Time")
-                plt.ylabel("Amplitude (normalized)")
-                plt.title(f"Element {unit} - Error {err_distance[unit]:.3f} - Best offset {-best_offset}")
-                plt.legend()
-                plt.savefig(f"dictionary-i-{iteration:03}-{unit:03}.png")
+                interpolated_gt = dict1_interpolated[:,unit*numOfinterp+idx]
+                interpolated_gt /= np.linalg.norm(interpolated_gt)
+                plot_template_and_truth_interp(estimated_dict, interpolated_gt, unit, err_distance[unit], idx, self.fs, self.config["model"]["cdl"]["interpolate"], best_offset, iteration)
+                
         
         return err_distance, indices
     
@@ -179,14 +162,9 @@ class Dictionary:
                 diff = 0
 
             err_distance[i] = np.sqrt(diff)
-
-            if save_plots and (self.config["output"]["plot"] > 1 or (self.config["output"]["plot"] == 1 and iteration == -1)):
-                plt.figure(figsize=(10,5))
-                plt.plot(dict1[:,i], label="True", marker='x')
-                plt.plot(dict2[:,i], label="Estimated", marker='+')
-                plt.title(f"Element {i} - Error {err_distance[i]}")
-                plt.legend()
-                plt.savefig(f"dictionary-{iteration:03}-{i:03}.png")            
+            
+            plot_template_and_truth(dict2[:,i], dict1[:,i], i, err_distance[i], self.fs, iteration)
+                   
 
 
         return err_distance
@@ -310,7 +288,7 @@ class Dictionary:
                 elem = np.matmul(np.linalg.pinv(denominator), numerator)
                 d_updated[:,base_fidx] = elem/np.linalg.norm(elem)
 
-            else:
+            elif self.config["output"]["verbose"] > 0:
                 print("Non matching!")
                 pass
 
