@@ -481,7 +481,7 @@ class CDL:
         if self.config["output"]["plot"] > 1:
             if self.config["output"]["verbose"] > 0:
                 print("Finding good detections and false positives...")
-            true_positives, false_positives = self.find_good_and_bad_firings(traces_seg, sparse_coeffs, sorting_true, mode)
+            true_positives, false_positives = self.find_good_and_bad_firings(traces_seg, sparse_coeffs, spikes_sorting.sample_index, sorting_true, mode)
             plot_one_firing(true_positives, "TP")
             plot_one_firing(false_positives, "FP")
             if self.config["output"]["verbose"] > 0:
@@ -489,7 +489,7 @@ class CDL:
             
         return reconstructed
     
-    def find_good_and_bad_firings(self, traces_seg, sparse_coeffs, sorting_true, mode="split"):
+    def find_good_and_bad_firings(self, traces_seg, sparse_coeffs, samples_clean, sorting_true, mode="split"):
         """
         Find well detected spikes and false positives
         
@@ -540,10 +540,13 @@ class CDL:
                         continue
                     if mode == "whole":
                         idx = firing_idx
+                        if idx-self.dictionary.element_length//2 not in samples_clean.values:
+                            continue
                     elif mode == "split":
                         idx = seg_idx + firing_idx
                     else:
                         raise ValueError("Mode not supported")
+                    
                     spike_idx = idx
                     min_diff, min_diff_unit = self.get_distance_to_min_diff_unit(spike_idx, sorting_true)
                     if min_diff > (self.config["output"]["fp_threshold_ms"]/1000 * fs):
