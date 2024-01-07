@@ -4,3 +4,6 @@ defaults:
 
 sources:
   num: 5
+
+gen:
+  seed: 15

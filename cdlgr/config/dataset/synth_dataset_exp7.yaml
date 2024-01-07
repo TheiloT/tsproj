@@ -4,3 +4,6 @@ defaults:
 
 window:
   window_size_s: 0.06
+
+gen:
+  seed: 17

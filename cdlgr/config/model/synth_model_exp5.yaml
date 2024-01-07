@@ -3,8 +3,7 @@ defaults:
  - _self_
 
 dictionary:
-  init_templates: "real"
   num_elements: 5
 
 gen:
-  numOfEvents: 3 # Number of events per unit source
+  numOfEvents: 3

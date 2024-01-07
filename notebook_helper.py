@@ -118,7 +118,7 @@ def report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_e
     units = np.arange(num_elements)
 
     metrics_by_interp_and_unit = {interpolation: {unit: [] for unit in units} for interpolation in interpolations}
-    print("Averaged metric by interpolation and unit:")
+    print(f"Averaged {metric} by interpolation and unit:")
     # Iterate over each interpolation value
     for interpolation in interpolations:
         # Average over seed values
@@ -159,8 +159,8 @@ def report_multirun_dict_error(dataset, experiment, num_elements=2, interpolatio
         print()
 
 
-def report_multi_run_results(experiment):
+def report_multi_run_results(experiment, num_elements=2):
     dataset="synth"
-    report_average_multi_run_perfs(dataset, experiment, metric="accuracy")
+    report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_elements=num_elements)
     print()
-    report_multirun_dict_error(dataset, experiment)
+    report_multirun_dict_error(dataset, experiment, num_elements=num_elements)

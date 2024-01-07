@@ -19,3 +19,4 @@ cdl:
   rel_amp_split_test: 0.4 # Used to eliminate detections that are too far away from the majority of detections for a given template: if two detected spikes (ordered by amplitudes) have a difference in amplitude larger than this value, the smaller one (and subsequently smaller ones) are removed.
   error_tol: 0.01 # Error tolerance for the CSC algorithm
   interpolator_type: sinc # Interpolator type, "sinc", "linear" or "cubic"
+  permute_templates: false # Wether to permute the templates at each iteration to match the indexation of the true units

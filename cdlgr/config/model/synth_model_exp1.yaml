@@ -4,3 +4,6 @@ defaults:
 
 dictionary:
   init_templates: "random"
+
+cdl:
+  permute_templates: true

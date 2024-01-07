@@ -325,7 +325,8 @@ class Dictionary:
                 d_updated[:,base_fidx] = elem/np.linalg.norm(elem)
 
             elif self.config["output"]["verbose"] > 0:
-                print("Non matching!")
+                if self.config["output"]["verbose"] > 0:
+                    print("Non matching!")
                 pass
 
         # return d_updated, indices_set, coeffs_set, y_extracted_set

@@ -1,3 +1,6 @@
 defaults:
  - synth_default_dataset
  - _self_
+
+gen:
+  seed: 18

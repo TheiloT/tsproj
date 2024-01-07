@@ -1,4 +1,8 @@
 # See default_model.yaml for more information
+defaults:
+  - default_model
+  - _self_
+
 dictionary:
   num_elements: 2
   element_length_ms: 10.125
@@ -13,3 +17,4 @@ cdl:
   rel_amp_split_test: 0.6
   error_tol: 0.01
   interpolator_type: sinc
+  permute_templates: false

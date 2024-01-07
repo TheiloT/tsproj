@@ -111,7 +111,8 @@ class CDL:
         else:
             traces_seg = {}
             traces_seg[0] = get_frames()
-            warnings.warn("Performance evaluation only works with window split")
+            if self.config["output"]["verbose"] > 0:
+                warnings.warn("Performance evaluation only works with window split")
             input()
 
         time_preprocessing_end = perf_counter()
@@ -151,7 +152,8 @@ class CDL:
                 time_update_end = perf_counter()
                 time_update.append(time_update_end - time_update_begin)
             
-            sparse_coeffs = self.find_best_templates_permutation(sparse_coeffs)  # Outside time measurement because it is only performed to compute the metrics
+            if self.config["model"]["cdl"]["permute_templates"]: # Do this only if necessary as this is time consuming
+                sparse_coeffs = self.find_best_templates_permutation(sparse_coeffs)  # Outside time measurement because it is only performed to compute the metrics
 
             if self.config["output"]["plot"] > 1 or (self.config["output"]["plot"] > 0 and i == self.num_iterations-1):
                 error = self.dictionary.recovery_error(i+1)
@@ -319,7 +321,8 @@ class CDL:
             for atom_i in sparse_coeffs[seg_idx].keys():            
                 for firing_nb, firing_idx in enumerate(sparse_coeffs[seg_idx][atom_i]["idx"]):
                     if firing_idx > seg_size:
-                        warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
+                        if self.config["output"]["verbose"] > 0:
+                            warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
                         continue
                     if atom_i not in active_i or mode != "split":
                         active_i.append(atom_i)    
@@ -525,7 +528,8 @@ class CDL:
                 atom = atom_i // self.interpolate if self.interpolate != 0 else atom_i
                 for firing_idx in sparse_coeffs[seg_idx][atom_i]["idx"]:
                     if firing_idx > seg_size:
-                        warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
+                        if self.config["output"]["verbose"] > 0:
+                            warnings.warn(f"idx {firing_idx} larger than seg_size {seg_size}")
                         continue
                     if mode == "whole":
                         idx = firing_idx

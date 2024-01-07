@@ -87,9 +87,9 @@ def get_dataset(config: DictConfig):
         avalailable_units = {
             "gamma_tone_1": lambda x: (factor*x)*np.exp(-(factor*x)**2)*np.cos(2*np.pi*(factor*x)/4),
             "gamma_tone_2": lambda x: (factor*x)*np.exp(-(factor*x)**2),
-            "cauchy": lambda x: +1/np.pi * gamma / ((factor*x)**2 + gamma**2),
-            "box": lambda x: +0.5*(np.abs((factor*x)) <= 1.5),
-            "hat": lambda x: +0.5*np.where(np.abs((factor*x)) <= 0.5, 1 - 2 * np.abs((factor*x)), 0)
+            "cauchy": lambda x: -0.5/np.pi * gamma / ((factor*x)**2 + gamma**2),
+            "box": lambda x: -0.5*(np.abs((factor*x)) <= 1.5),
+            "hat": lambda x: -0.5*np.where(np.abs((factor*x)) <= 0.25, 0.5 - 2 * np.abs((factor*x)), 0)
         }
         dictionary = {i: unit for i, unit in enumerate(list(avalailable_units.values())[:config["dataset"]["sources"]["num"]])}
         
@@ -242,8 +242,8 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
                 point = dictionary[fidx](ts)
                 filter_realization[sidx] = point
 
-                if point>maxamp:
-                    maxamp = point
+                if abs(point)>maxamp:
+                    maxamp = abs(point)
             signal[start_sample : start_sample + filter_length_in_samples] += filter_realization/maxamp*amp
             
     return signal, events_indices

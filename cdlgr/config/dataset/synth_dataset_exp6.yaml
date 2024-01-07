@@ -4,3 +4,4 @@ defaults:
 
 gen:
   noise: 0.3
+  seed: 16
