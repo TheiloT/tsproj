@@ -87,9 +87,9 @@ def get_dataset(config: DictConfig):
         avalailable_units = {
             "gamma_tone_1": lambda x: (factor*x)*np.exp(-(factor*x)**2)*np.cos(2*np.pi*(factor*x)/4),
             "gamma_tone_2": lambda x: (factor*x)*np.exp(-(factor*x)**2),
-            "cauchy": lambda x: -1/np.pi * gamma / ((factor*x)**2 + gamma**2),
-            "box": lambda x: -0.5*(np.abs((factor*x)) <= 1.5),
-            "hat": lambda x: -0.5*np.where(np.abs((factor*x)) <= 0.5, 1 - 2 * np.abs((factor*x)), 0)
+            "cauchy": lambda x: +1/np.pi * gamma / ((factor*x)**2 + gamma**2),
+            "box": lambda x: +0.5*(np.abs((factor*x)) <= 1.5),
+            "hat": lambda x: +0.5*np.where(np.abs((factor*x)) <= 0.5, 1 - 2 * np.abs((factor*x)), 0)
         }
         dictionary = {i: unit for i, unit in enumerate(list(avalailable_units.values())[:config["dataset"]["sources"]["num"]])}
         
@@ -114,6 +114,12 @@ def get_dataset(config: DictConfig):
             np.random.seed(previous_random_state)
         if config["output"]["verbose"] > 0:
             print("Data generated")
+
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(20, 5))
+        plt.plot(signal_train)
+        plt.plot(truth_train)
+        plt.show()
         
         ####################################
         # Convert to a spikeinterface BaseRecording
@@ -230,10 +236,12 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
             filter_length_in_samples = int(filter_length * fs)
             filter_realization = np.zeros(filter_length_in_samples)
 
+            # import matplotlib.pyplot as plt
             for sidx in np.arange(filter_length_in_samples):
                 ts = -filter_length_in_samples/2 * interval + delta + sidx*interval
                 point = dictionary[fidx](ts)
                 filter_realization[sidx] = point
+
                 if point>maxamp:
                     maxamp = point
             signal[start_sample : start_sample + filter_length_in_samples] += filter_realization/maxamp*amp
