@@ -1,0 +1,7 @@
+defaults:
+ - synth_default_model
+ - _self_
+
+dictionary:
+  init_templates: "real_noisy"
+  real_random_noise: 0.2

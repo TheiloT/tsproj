@@ -1,13 +1,15 @@
+# See default_model.yaml for more information
 dictionary:
   num_elements: 2
-  element_length_ms: 10.5 # should make an odd number of samples
-  init_templates: "signal" # "real" "random" "signal"
+  element_length_ms: 10.125
+  init_templates: "real_noisy"
+  real_random_noise: 0.2
 
 cdl:
   num_iterations: 10
-  interpolate: 0 # should be even, 0 means no interpolation
+  interpolate: 10
   sparsity_tol: 1
-  sparsity_tol_test: 40 # average spike rate # base it on the number of spikes in the test data OR a criteria on matching (amplitude not too high or low)
+  sparsity_tol_test: 25
   rel_amp_split_test: 0.6
   error_tol: 0.01
   interpolator_type: sinc

@@ -10,7 +10,7 @@ hydra:
   job:
     chdir: true
   run:
-    dir: ./outputs/${dataset.type}_experiments/experiment_${experiment}/simple/interp_${model.dictionary.num_elements}_${model.cdl.interpolate}/seed_${dataset.gen.seed}
+    dir: ./outputs/${dataset.type}_experiments/experiment_${experiment}/single/interp_${model.dictionary.num_elements}_${model.cdl.interpolate}/seed_${dataset.gen.seed}
   sweep:
     dir: ./outputs/${dataset.type}_experiments/experiment_${experiment}/multi
-    subdir: interp_${model.cdl.interpolate}/seed_${dataset.gen.seed}
+    subdir: interp_${model.dictionary.num_elements}_${model.cdl.interpolate}/seed_${dataset.gen.seed}

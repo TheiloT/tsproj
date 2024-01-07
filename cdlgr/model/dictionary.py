@@ -16,7 +16,7 @@ class Dictionary:
 
         if config["output"]["verbose"] > 0:
             print(f"Creating dictionary with {self.num_elements} elements of length {self.element_length} samples ({self.element_length/self.fs*1000} ms).")
-        np.random.seed(0)
+
         self.dictionary = np.random.rand(self.element_length, self.num_elements)
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
@@ -57,14 +57,31 @@ class Dictionary:
         if self.config["output"]["plot"] > 0:
             plot_templates(templates, self.fs, self.channel, normalized=True)
 
-        if self.config["model"]["dictionary"]["init_templates"] == "real":
+        if self.config["model"]["dictionary"]["init_templates"] in ["real", "real_noisy", "real_offset"]:
             if self.config["output"]["verbose"] > 0:
-                print("Initializing dictionary with real templates...")
+                if self.config["model"]["dictionary"]["init_templates"] == "real":
+                    print("Initializing dictionary with real templates...")
+                elif self.config["model"]["dictionary"]["init_templates"] == "real_noisy":
+                    print("Initializing dictionary with noisy real templates...")
+                elif self.config["model"]["dictionary"]["init_templates"] == "real_offset":
+                    print("Initializing dictionary with offset real templates...")
+                
             for i in range(min(self.num_elements, templates.shape[0])):
+                template = templates[i, :, self.channel]
+                if self.config["model"]["dictionary"]["init_templates"] == "real_noisy":
+                    template += np.random.normal(0, self.config["model"]["dictionary"]["real_random_noise"], template.shape)
                 if templates.shape[1] < self.element_length:
-                    self.dictionary[:, i] = np.pad(templates[i, :, self.channel], (0, self.element_length - templates.shape[1]), 'constant')
+                    template = np.pad(template, (0, self.element_length - templates.shape[1]), 'constant')
+                    if self.config["model"]["dictionary"]["init_templates"] == "real_offset":
+                        offset = int(self.config["model"]["dictionary"]["real_offset_ms"]/1000 * self.fs)
+                        self.dictionary[:, i] = np.roll(template, offset)
+                    else:
+                        self.dictionary[:, i] = template
                 else:
-                    self.dictionary[:, i] = templates[i, templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1, self.channel]
+                    if self.config["model"]["dictionary"]["init_templates"] == "real_offset":
+                        offset = int(self.config["model"]["dictionary"]["real_offset_ms"]/1000 * self.fs)
+                        template = np.roll(template, offset)
+                    self.dictionary[:, i] = template[templates.shape[1]//2-self.element_length//2:templates.shape[1]//2+self.element_length//2+1]
 
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
     
@@ -100,6 +117,7 @@ class Dictionary:
         offsets = np.arange(-offset,offset+1,dtype=int)
 
         err_distance = np.zeros(filternum)
+        time_offset = np.zeros(filternum)
 
         dict1 = dict1/np.linalg.norm(dict1, axis=0)
         dict2 = dict2/np.linalg.norm(dict2, axis=0)
@@ -122,6 +140,7 @@ class Dictionary:
                         indices[unit] = j
                         best_offset = o
             err_distance[unit] = min_dist
+            time_offset[unit] = 1000*best_offset/self.fs if best_offset is not None else np.nan
             
             if save_plots:
                 idx = indices[unit]
@@ -129,8 +148,7 @@ class Dictionary:
                 interpolated_gt /= np.linalg.norm(interpolated_gt)
                 plot_template_and_truth_interp(estimated_dict, interpolated_gt, unit, err_distance[unit], idx, self.fs, self.config["model"]["cdl"]["interpolate"], best_offset, iteration)
                 
-        
-        return err_distance, indices
+        return err_distance, indices, time_offset
     
     def recovery_error(self, iteration, save_plots=True):
 

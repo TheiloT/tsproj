@@ -165,9 +165,9 @@ class CDL:
         if self.config["output"]["verbose"] > 0:
             print("Running CDL...")       
 
-        self.dictionary.recovery_error(-1)
-        self.dictionary.recovery_error_interp(-1, self.interpolate)
-        # exit()
+        if self.config["output"]["plot"] > 0:
+            self.dictionary.recovery_error(-1)
+            self.dictionary.recovery_error_interp(-1, self.interpolate)
 
         time_total_begin = perf_counter()
         time_csc = []
@@ -190,6 +190,9 @@ class CDL:
                 if self.config["output"]["verbose"] > 0:
                     print("Dictionary error (original and interpolated):", error, error2)
                     print()
+        
+        error, _, time_offset = self.dictionary.recovery_error_interp(self.num_iterations, self.interpolate, save_plots=False)
+        np.savez("interpolated_dictionary_error.npz", error=error, time_offset=time_offset)
 
         time_total_end = perf_counter()
 
@@ -227,6 +230,15 @@ class CDL:
             traces_seg[0] = self.dictionary.dataset.recording_test.get_traces(
                 channel_ids=[self.channel],
             ).flatten()
+            traces_to_plot = self.dictionary.dataset.recording_test.get_traces(
+                start_frame=0,
+                end_frame=min(10000, self.dictionary.dataset.recording_test.get_num_frames()),
+                channel_ids=[self.channel],
+            )
+            fs = self.config["dataset"].get("fs", None)
+            fs = fs if fs is not None else self.dictionary.dataset.recording.get_sampling_frequency()
+            if self.config["output"]["plot"] > 0:
+                plot_traces(traces_to_plot, fs, "test")
 
             self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol_test"]
             sparse_coeffs, interpolated_dict, _, time_diff = self.run_csc(traces_seg)

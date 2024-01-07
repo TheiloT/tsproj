@@ -1,0 +1,7 @@
+defaults:
+ - synth_default_model
+ - _self_
+
+
+cdl:
+  interpolator_type: cubic

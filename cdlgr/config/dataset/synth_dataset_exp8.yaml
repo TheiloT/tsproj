@@ -1,0 +1,3 @@
+defaults:
+ - synth_default_dataset
+ - _self_

@@ -1,0 +1,6 @@
+defaults:
+ - synth_default_dataset
+ - _self_
+
+sources:
+  num: 5

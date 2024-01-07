@@ -1,13 +1,20 @@
 dictionary:
-  num_elements: 1
-  element_length_ms: 2.15 # should make an odd number of samples # 2.3
-  init_templates: "signal" # "real" "random" "signal"
+  num_elements: 1  # Number of elements in the dictionary
+  element_length_ms: 2.15 # should make an odd number of samples
+  init_templates: "signal"
+    # "real": use the real units
+    # "random": initialize randomly
+    # "signal": detect events in the signal and use them as initial templates
+    # "real_noisy": use the real units and add random noise
+    # "real_offset": use the real units and add a random offset
+  real_random_noise: 0.1 # Noise level for the "real_noisy" initialization
+  real_offset_ms: 0.5 # Offset level for the "real_offset" initialization in ms
 
 cdl:
   num_iterations: 5
-  interpolate: 10 # should be even, 0 means no interpolation
+  interpolate: 10 # number of sub-sample per original sample on the sampling grid. Should be even; 0 means no interpolation
   sparsity_tol: 1
-  sparsity_tol_test: 40 # average spike rate # base it on the number of spikes in the test data OR a criteria on matching (amplitude not too high or low)
-  rel_amp_split_test: 0.4
-  error_tol: 0.01
-  interpolator_type: sinc
+  sparsity_tol_test: 40 # Average spike rate; base it on the number of spikes in the test data OR a criteria on matching (amplitude not too high or low)
+  rel_amp_split_test: 0.4 # Used to eliminate detections that are too far away from the majority of detections for a given template: if two detected spikes (ordered by amplitudes) have a difference in amplitude larger than this value, the smaller one (and subsequently smaller ones) are removed.
+  error_tol: 0.01 # Error tolerance for the CSC algorithm
+  interpolator_type: sinc # Interpolator type, "sinc", "linear" or "cubic"

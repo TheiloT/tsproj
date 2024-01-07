@@ -1,0 +1,10 @@
+defaults:
+ - synth_default_model
+ - _self_
+
+dictionary:
+  init_templates: "real"
+  num_elements: 5
+
+gen:
+  numOfEvents: 3 # Number of events per unit source

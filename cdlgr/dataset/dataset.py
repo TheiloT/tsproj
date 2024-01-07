@@ -14,7 +14,7 @@ class Dataset:
     recording_test: si.BaseRecording
     sorting_true: si.BaseSorting
     sorting_true_test: si.BaseSorting
-
+    
 def get_dataset(config: DictConfig):
     type_dataset = config["dataset"]["type"]
 
@@ -83,8 +83,15 @@ def get_dataset(config: DictConfig):
         filter_length = config["dataset"]["sources"]["length_ms"]/1000
         factor = 10/filter_length
         dictionary = {}
-        dictionary[0] = lambda x: (factor*x)*np.exp(-(factor*x)**2)*np.cos(2*np.pi*(factor*x)/4)
-        dictionary[1] = lambda x: (factor*x)*np.exp(-(factor*x)**2)
+        gamma = 0.5  # Used for the Cauchy distribution-shaped function
+        avalailable_units = {
+            "gamma_tone_1": lambda x: (factor*x)*np.exp(-(factor*x)**2)*np.cos(2*np.pi*(factor*x)/4),
+            "gamma_tone_2": lambda x: (factor*x)*np.exp(-(factor*x)**2),
+            "cauchy": lambda x: -1/np.pi * gamma / ((factor*x)**2 + gamma**2),
+            "box": lambda x: -0.5*(np.abs((factor*x)) <= 1.5),
+            "hat": lambda x: -0.5*np.where(np.abs((factor*x)) <= 0.5, 1 - 2 * np.abs((factor*x)), 0)
+        }
+        dictionary = {i: unit for i, unit in enumerate(list(avalailable_units.values())[:config["dataset"]["sources"]["num"]])}
         
         # Generate data
         # Number of channels is 1
@@ -97,14 +104,14 @@ def get_dataset(config: DictConfig):
         if config["output"]["verbose"] > 0:
             print("Generating data")
         if generation_seed is not None:
+            previous_random_state = np.random.get_state()[1]
             np.random.seed(generation_seed)
         truth_train, event_indices_train = generate_Simulated_continuous(config, numOfevents, T, fs, dictionary, filter_length, amps)
         truth_test, event_indices_test = generate_Simulated_continuous(config, numOfevents, T, fs, dictionary, filter_length, amps)
         signal_train = truth_train + config["dataset"]["gen"]["noise"]*np.random.randn(T*fs)
         signal_test = truth_test + config["dataset"]["gen"]["noise"]*np.random.randn(T*fs)
         if generation_seed is not None:
-            np.random.seed(int(time()))
-
+            np.random.seed(previous_random_state)
         if config["output"]["verbose"] > 0:
             print("Data generated")
         
@@ -119,13 +126,12 @@ def get_dataset(config: DictConfig):
         sorting_train = get_sorting_from_events(event_indices_train, fs, filter_length, num_sources, numOfevents)
         sorting_test = get_sorting_from_events(event_indices_test, fs, filter_length, num_sources, numOfevents)
         
-        recording_test, sorting_test = subset_data(config, recording_train, sorting_train, t_start_test, t_stop_test, "test")
-        recording, sorting_true = subset_data(config, recording_test, sorting_test, t_start, t_stop, "training")
-        
+        recording, sorting_true = subset_data(config, recording_train, sorting_train, t_start, t_stop, "training")
+        recording_test, sorting_test = subset_data(config, recording_test, sorting_test, t_start_test, t_stop_test, "test")
+
         if config["output"]["verbose"] > 0:
             print()
 
-    
     return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
         
 
@@ -157,9 +163,6 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
 
     amps: array (two elements)
         lower boudn and upper bound for the amplitudes
-        
-    seed: int
-        seed for the random number generator. If None, no seed is used.
 
 
     Outputs

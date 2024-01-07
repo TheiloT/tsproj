@@ -1,3 +1,4 @@
+# See default_model.yaml for more information
 dictionary:
   num_elements: 2 # 1
   element_length_ms: 2.15 # should make an odd number of samples

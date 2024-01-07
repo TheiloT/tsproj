@@ -1,3 +1,6 @@
 defaults:
  - synth_default_model
  - _self_
+
+dictionary:
+  init_templates: "random"

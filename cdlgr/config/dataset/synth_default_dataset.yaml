@@ -1,3 +1,4 @@
+# See default_dataset.yaml for more information
 type: synth
 name:  synthetic
 recording: synthetic
@@ -25,14 +26,14 @@ window:
 
 # Synth-specific parameters
 sources:
-  num: 2
-  length_ms: 10.5
+  num: 2 # number of sources
+  length_ms: 10.125 # length of each unit in ms
 
 gen:
-  seed:
-  noise: 0.1
-  amps: [1, 2]
-  numOfEvents: 10
-  T: 3
+  seed: # Seed used for random number generation
+  noise: 0.1 # Noise level
+  amps: [1, 2] # Amplitudes of the unit sources vary within this range
+  numOfEvents: 10 # Number of events per unit source
+  T: 3 # Duration of the signals (training and test) in seconds
 
-fs: 10000
+fs: 8000 # Sampling frequency
