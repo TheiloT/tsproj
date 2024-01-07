@@ -12,3 +12,4 @@ cdl:
   rel_amp_split_test: 0.4
   error_tol: 0.01
   interpolator_type: sinc
+  permute_templates: false
