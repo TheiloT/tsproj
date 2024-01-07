@@ -197,7 +197,7 @@ class Dictionary:
             if abs(opposite_diff)< 1e-6:
                 opposite_diff = 0
                 
-            err_distance[i] = min(opposite_diff, diff)
+            err_distance[i] = np.sqrt(min(opposite_diff, diff))
             
             plot_template_and_truth(dict2[:,i], dict1[:,i], i, err_distance[i], self.fs, iteration)
                    
