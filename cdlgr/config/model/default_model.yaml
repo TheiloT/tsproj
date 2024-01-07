@@ -5,6 +5,7 @@ dictionary:
     # "real": use the real units
     # "random": initialize randomly
     # "signal": detect events in the signal and use them as initial templates
+    # "cluster": cluster the events in the signal and use the centroids obtained with Kmeans as initial templates
     # "real_noisy": use the real units and add random noise
     # "real_offset": use the real units and add a random offset
   real_random_noise: 0.1 # Noise level for the "real_noisy" initialization

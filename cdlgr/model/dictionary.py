@@ -191,8 +191,13 @@ class Dictionary:
             # Numerical issue
             if abs(diff)< 1e-6:
                 diff = 0
-
-            err_distance[i] = np.sqrt(diff)
+                
+            # The flipped unit is fine as well, as taking the opposite of the code is also a valid solution
+            opposite_diff = 1-np.power(np.matmul(np.transpose(dict1[:,i]), -dict2[:,i]),2)
+            if abs(opposite_diff)< 1e-6:
+                opposite_diff = 0
+                
+            err_distance[i] = min(opposite_diff, diff)
             
             plot_template_and_truth(dict2[:,i], dict1[:,i], i, err_distance[i], self.fs, iteration)
                    

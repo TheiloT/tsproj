@@ -66,13 +66,6 @@ class CDL:
             peaks = pd.DataFrame(peaks)
             peaks = peaks[peaks["channel_index"] == self.channel]
 
-            # plt.close('all')
-            # traces = get_frames()
-            # for peak in peaks.iterrows():
-            #     plt.scatter(peak[1]["sample_index"], traces[int(peak[1]["sample_index"])], color="r")
-            # plt.plot(traces)
-            # plt.show()
-
             peak_size = int(self.config["dataset"]["window"]["window_size_s"] * fs)
             half_size = peak_size // 2
             traces_seg = {}
@@ -103,44 +96,18 @@ class CDL:
                 for k in range(self.dictionary.num_elements):
                     self.dictionary.dictionary[:, k] = get_frames(peaks.sample_index.values[k]-self.dictionary.element_length//2,
                                                 peaks.sample_index.values[k]+self.dictionary.element_length//2+1)
-                # Ensure consistency in the indexation of the filters between true and estimated dictionaries
-                best_perm, best_total_error = None, np.infty
-                copy_dictionary = deepcopy(self.dictionary)
-                for perm in permutations(range(self.dictionary.num_elements)):
-                    copy_dictionary.dictionary = self.dictionary.dictionary[:, perm].copy()
-                    error = np.sum(copy_dictionary.recovery_error_interp(-1, numOfsubgrids=self.config["model"]["cdl"]["interpolate"], save_plots=False))
-                    if error < best_total_error:
-                        best_total_error = error
-                        best_perm = perm
-                self.dictionary.dictionary = self.dictionary.dictionary[:, best_perm]
-
+                self.find_best_templates_permutation()
                 self.dictionary.normalize()
             elif self.config["model"]["dictionary"]["init_templates"] == "cluster":
                 pca_elements = []
-                # print("Dictionary shape 0", self.dictionary.dictionary.shape)
                 for k in range(len(peaks)):
                     pca_elements.append(get_frames(peaks.sample_index.values[k]-self.dictionary.element_length//2,
                                                 peaks.sample_index.values[k]+self.dictionary.element_length//2+1))
                 kmeans = KMeans(n_clusters=self.dictionary.num_elements)
                 kmeans.fit(pca_elements)
                 self.dictionary.dictionary = np.transpose(kmeans.cluster_centers_)
-                # print("Dictionary shape 1", self.dictionary.dictionary.shape)
-                # print("Dictionary", self.dictionary.dictionary)
-                    # self.dictionary.dictionary[:, k] = get_frames(peaks.sample_index.values[k]-self.dictionary.element_length//2,
-                    #                             peaks.sample_index.values[k]+self.dictionary.element_length//2+1)
-                # Ensure consistency in the indexation of the filters between true and estimated dictionaries
-                # best_perm, best_total_error = None, np.infty
-                # copy_dictionary = deepcopy(self.dictionary)
-                # for perm in permutations(range(self.dictionary.num_elements)):
-                #     copy_dictionary.dictionary = self.dictionary.dictionary[:, perm].copy()
-                #     error = np.sum(copy_dictionary.recovery_error_interp(-1, numOfsubgrids=self.config["model"]["cdl"]["interpolate"], save_plots=False))
-                #     if error < best_total_error:
-                #         best_total_error = error
-                #         best_perm = perm
-                # self.dictionary.dictionary = self.dictionary.dictionary[:, best_perm]
 
                 self.dictionary.normalize()
-                # print("Dictionary shape 2", self.dictionary.dictionary.shape)
         else:
             traces_seg = {}
             traces_seg[0] = get_frames()
@@ -180,9 +147,11 @@ class CDL:
             
             if i != self.num_iterations - 1:
                 time_update_begin = perf_counter()
-                self.dictionary.update(traces_seg, sparse_coeffs, interpolator)   
+                self.dictionary.update(traces_seg, sparse_coeffs, interpolator)
                 time_update_end = perf_counter()
                 time_update.append(time_update_end - time_update_begin)
+            
+            sparse_coeffs = self.find_best_templates_permutation(sparse_coeffs)  # Outside time measurement because it is only performed to compute the metrics
 
             if self.config["output"]["plot"] > 1 or (self.config["output"]["plot"] > 0 and i == self.num_iterations-1):
                 error = self.dictionary.recovery_error(i+1)
@@ -252,6 +221,26 @@ class CDL:
             
             self.save_coeffs(sparse_coeffs, "test")
             np.savetxt("time_test.txt", [time_diff], fmt="%f")
+
+    def find_best_templates_permutation(self, sparse_coeffs=None):
+        # Ensure consistency in the indexation of the filters between true and estimated dictionaries
+        best_perm, best_total_error = None, np.infty
+        copy_dictionary = deepcopy(self.dictionary)
+        for perm in permutations(range(self.dictionary.num_elements)):
+            copy_dictionary.dictionary = self.dictionary.dictionary[:, perm].copy()
+            error = np.sum(copy_dictionary.recovery_error_interp(-1, numOfsubgrids=self.config["model"]["cdl"]["interpolate"], save_plots=False))
+            if error < best_total_error:
+                best_total_error = error
+                best_perm = perm
+        self.dictionary.dictionary = self.dictionary.dictionary[:, best_perm]
+        
+        if sparse_coeffs is not None:
+            for seg in sparse_coeffs.keys():
+                new_sparse_coeff_seg = {}
+                for template in range(self.dictionary.num_elements):
+                    for interp in range(self.interpolate):
+                        new_sparse_coeff_seg[self.interpolate*template + interp] = sparse_coeffs[seg][self.interpolate * best_perm[template] + interp]
+            return sparse_coeffs
 
     def run_csc(self, traces_seg):
         time_csc_begin = perf_counter()
@@ -425,7 +414,7 @@ class CDL:
             print(sorting_cdlgr.to_spike_vector())
     
         length_ms = self.config["dataset"].get("sources", {}).get("length_ms", None)
-        delta_time = length_ms if length_ms is not None else 4  # in ms
+        delta_time = length_ms/2 if length_ms is not None else 4  # in ms
         fs = self.config["dataset"].get("fs", None)
         fs = fs if fs is not None else self.dictionary.dataset.recording.get_sampling_frequency()
         cmp = sc.compare_sorter_to_ground_truth(sorting_true, sorting_cdlgr, exhaustive_gt=True, delta_time=delta_time, sampling_frequency=fs)
