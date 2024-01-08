@@ -31,7 +31,7 @@ sources:
 
 gen:
   seed: # Seed used for random number generation
-  noise: 0.1 # Noise level
+  noise: 0.1 # Standard deviation of the added Gaussian noise
   amps: [1, 2] # Amplitudes of the unit sources vary within this range
   numOfEvents: 10 # Number of events per unit source
   T: 3 # Duration of the signals (training and test) in seconds

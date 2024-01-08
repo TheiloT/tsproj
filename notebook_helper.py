@@ -111,7 +111,7 @@ def show_plots(path, num_elements=2, num_iterations=10):
     show_plot(os.path.join(path, "time.png"))
    
 
-def report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_elements=2, interpolations=np.array([0, 10]), seeds=np.arange(1, 6), mode="test"):
+def report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_elements=2, interpolations=np.array([0, 10]), seeds=np.arange(1, 6), mode="test", average_only=False):
     """
     Average metrics over multiple runs of the same experiment.
     """
@@ -119,7 +119,7 @@ def report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_e
     units = np.arange(num_elements)
 
     metrics_by_interp_and_unit = {interpolation: {unit: [] for unit in units} for interpolation in interpolations}
-    print(f"Averaged {metric} by interpolation and unit:")
+    print(f"Averaged {metric}:")
     # Iterate over each interpolation value
     for interpolation in interpolations:
         # Average over seed values
@@ -128,8 +128,11 @@ def report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_e
             for unit in units:
                 metrics_by_interp_and_unit[interpolation][unit].append(metric_by_unit[unit])
         print("interpolation:", interpolation)
+        overall_interpolation = np.array([])
         for unit in units:
             print(f"unit {unit}: {np.mean(metrics_by_interp_and_unit[interpolation][unit]):.3f} +/- {np.std(metrics_by_interp_and_unit[interpolation][unit]):.3f}")
+            overall_interpolation = np.concatenate((overall_interpolation, metrics_by_interp_and_unit[interpolation][unit]))
+        print(f"Overall: {np.mean(overall_interpolation):.3f} +/- {np.std(overall_interpolation):.3f}")
         print()
 
 
@@ -153,10 +156,38 @@ def report_multirun_dict_error(dataset, experiment, num_elements=2, interpolatio
                 error_by_interp_and_unit[interpolation][unit]["error"].append(error_by_unit[unit])
                 error_by_interp_and_unit[interpolation][unit]["offset"].append(offset_by_unit[unit])
         print("interpolation:", interpolation)
+        overall_interpolation_error = np.array([])
+        overall_interpolation_offset = np.array([])
         for unit in units:
             print(f"unit {unit}:")
             print(f"\terror: {np.mean(error_by_interp_and_unit[interpolation][unit]['error']):.3f} +/- {np.std(error_by_interp_and_unit[interpolation][unit]['error']):.3f}")
             print(f"\toffset: {np.mean(error_by_interp_and_unit[interpolation][unit]['offset']):.3f} ms +/- {np.std(error_by_interp_and_unit[interpolation][unit]['offset']):.3f} ms")
+            overall_interpolation_error = np.concatenate((overall_interpolation_error, error_by_interp_and_unit[interpolation][unit]["error"]))
+            overall_interpolation_offset = np.concatenate((overall_interpolation_offset, error_by_interp_and_unit[interpolation][unit]["offset"]))
+        print("Overall:")
+        print("\terror:", np.mean(overall_interpolation_error), "+/-", np.std(overall_interpolation_error))
+        print("\toffset:", np.mean(overall_interpolation_offset), "+/-", np.std(overall_interpolation_offset))
+        print()
+        
+def report_multirun_time(dataset, experiment, num_elements=2, interpolations=np.array([0, 10]), seeds=np.arange(1, 6)):
+    """
+    Report distance between dictionaries over multiple runs of the same experiment.
+    """
+    exp_path = os.path.join("outputs", f"{dataset}_experiments", f"experiment_{experiment}", "multi")
+
+    time_csc_by_interp = {interpolation: [] for interpolation in interpolations}
+    time_cdu_by_interp = {interpolation: [] for interpolation in interpolations}
+    print("Averaged runtime by interpolation:")
+    # Iterate over each interpolation value
+    for interpolation in interpolations:
+        # Average over seed values
+        for seed in seeds:
+            time = np.load(os.path.join(exp_path, f"interp_{num_elements}_{interpolation}", f"seed_{seed}", "time.npz"))
+            time_csc_by_interp[interpolation].append(time["time_csc"][0])
+            time_cdu_by_interp[interpolation].append(time["time_update"][0])
+        print("interpolation:", interpolation)
+        print(f"\tCSC cumulative time: {np.mean(time_csc_by_interp[interpolation]):.3f} +/- {np.std(time_csc_by_interp[interpolation]):.3f}")
+        print(f"\tCDU cumulative time: {np.mean(time_cdu_by_interp[interpolation]):.3f} ms +/- {np.std(time_cdu_by_interp[interpolation]):.3f} ms")
         print()
 
 
@@ -164,4 +195,14 @@ def report_multi_run_results(experiment, num_elements=2):
     dataset="synth"
     report_average_multi_run_perfs(dataset, experiment, metric="accuracy", num_elements=num_elements)
     print()
+    print("--------------------------")
+    report_average_multi_run_perfs(dataset, experiment, metric="precision", num_elements=num_elements)
+    print()
+    print("--------------------------")
+    report_average_multi_run_perfs(dataset, experiment, metric="recall", num_elements=num_elements)
+    print()
+    print("--------------------------")
     report_multirun_dict_error(dataset, experiment, num_elements=num_elements)
+    print()
+    print("--------------------------")
+    report_multirun_time(dataset, experiment, num_elements=num_elements)
