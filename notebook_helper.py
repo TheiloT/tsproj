@@ -22,7 +22,7 @@ def get_spectrogram(recording, end_frame=100000):
     return signal.spectrogram(recording.get_traces(end_frame=end_frame).flatten(), recording.get_sampling_frequency(),
                                nperseg=512, noverlap=256, window=('tukey', 0.25))
 
-def fft_rec(rec, end_frame=100000):    
+def fft_rec(rec, end_frame=100000, freq_lim=6000):    
     tr = rec.get_traces(end_frame=end_frame)
     fs = rec.get_sampling_frequency()
     print(fs)
@@ -44,10 +44,11 @@ def fft_rec(rec, end_frame=100000):
     plt.plot(frequencies, np.abs(fft_result))
     plt.title('Frequency Domain Representation')
     plt.xlabel('Frequency (Hz)')
-    plt.xlim(0, 6000)
+    plt.xlim(0, freq_lim)
     
     plt.tight_layout()
     plt.show()
+    
     
 # Experiments helpers
 def fetch_metric(path, metric="accuracy", mode="test"):
