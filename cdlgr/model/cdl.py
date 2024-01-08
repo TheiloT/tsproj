@@ -84,8 +84,9 @@ class CDL:
                 else:
                     traces_seg[idx][:] = get_frames(start_frame=peak_idx - half_size, end_frame=peak_idx + half_size)
                 if self.config["output"]["plot"] > 0:
-                    plt.plot(traces_seg[idx][:])
-            if self.config["output"]["plot"] > 0:
+                    plt.plot(traces_seg[idx][:], alpha=0.5)
+
+            if self.config["output"]["plot"] > 0:                
                 plt.xlabel("Sample index")
                 plt.ylabel("Amplitude (a. u.)")
                 plt.title("Traces segments")
