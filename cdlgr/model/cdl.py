@@ -107,6 +107,7 @@ class CDL:
                 kmeans.fit(pca_elements)
                 self.dictionary.dictionary = np.transpose(kmeans.cluster_centers_)
 
+                self.find_best_templates_permutation()
                 self.dictionary.normalize()
         else:
             traces_seg = {}
@@ -230,7 +231,10 @@ class CDL:
         copy_dictionary = deepcopy(self.dictionary)
         for perm in permutations(range(self.dictionary.num_elements)):
             copy_dictionary.dictionary = self.dictionary.dictionary[:, perm].copy()
-            error = np.sum(copy_dictionary.recovery_error_interp(-1, numOfsubgrids=self.config["model"]["cdl"]["interpolate"], save_plots=False))
+            errors = copy_dictionary.recovery_error_interp(-1, numOfsubgrids=self.config["model"]["cdl"]["interpolate"], save_plots=False)[0]
+            print(errors)
+            errors[np.isinf(errors)] = 0
+            error = np.sum(errors)
             if error < best_total_error:
                 best_total_error = error
                 best_perm = perm

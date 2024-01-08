@@ -34,7 +34,7 @@ class Dictionary:
         ms_before = length_ms/2 if length_ms is not None else 1.0
         ms_after = length_ms/2 + 1000/self.fs if length_ms is not None else 2.0
         wv = si.extract_waveforms(self.dataset.recording, self.dataset.sorting_true, max_spikes_per_unit=2500, ms_before=ms_before, ms_after=ms_after, mode="memory")
-        templates = wv.get_all_templates()  # Shape (num_units, num_samples, num_channels)
+        templates = wv.get_all_templates(mode='median').astype(float)  # Shape (num_units, num_samples, num_channels)
 
         # remove code duplication
         self.true_dictionary = np.zeros_like(self.dictionary)
@@ -197,7 +197,7 @@ class Dictionary:
             if abs(opposite_diff)< 1e-6:
                 opposite_diff = 0
                 
-            err_distance[i] = min(opposite_diff, diff)
+            err_distance[i] = np.sqrt(min(opposite_diff, diff))
             
             plot_template_and_truth(dict2[:,i], dict1[:,i], i, err_distance[i], self.fs, iteration)
                    
