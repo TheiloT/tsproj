@@ -80,7 +80,7 @@ def find_file_with_suffix(path, suffix):
     return None
     
 
-def show_plots(path, num_elements=2, num_iterations=10):
+def show_plots(path, num_elements=2, num_iterations=10, show_confusion_train=False):
     """
     Show plots stored in experiment folder indicated by path.
     """
@@ -105,7 +105,10 @@ def show_plots(path, num_elements=2, num_iterations=10):
         show_plot(os.path.join(path, os.path.basename(FP_name)))
     else:
         print("No false positive for test run.")
-    print("Confusion matrix:")
+    if show_confusion_train:
+        print("Confusion matrix train:")
+        show_plot(os.path.join(path, "confusion_matrix-train.png"))
+    print("Confusion matrix test:")
     show_plot(os.path.join(path, "confusion_matrix-test.png"))
     print("Time:")
     show_plot(os.path.join(path, "time.png"))
