@@ -33,9 +33,5 @@ def main(cfg: DictConfig):
         print()
     cdl.test()
 
-
-
-
-
 if __name__ == "__main__":
     main()

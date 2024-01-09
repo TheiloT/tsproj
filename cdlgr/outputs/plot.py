@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 
 def plot_preprocessed(dataset, config: DictConfig):
+    """ Plot preprocessed data """
     if config["output"]["preprocess"]["plot_traces"] or config["output"]["preprocess"]["plot_waveforms"] or config["output"]["preprocess"]["plot_snrs"]:
         # to do avoid duplicated waveforms compute
         wv = si.extract_waveforms(dataset.recording, dataset.sorting_true, max_spikes_per_unit=2500,
@@ -15,7 +16,6 @@ def plot_preprocessed(dataset, config: DictConfig):
         )
         plt.show()
 
-    
     if config["output"]["preprocess"]['plot_waveforms'] or config["output"]["preprocess"]["plot_snrs"]:
         # bug if signal shorter than chunk size
         snrs = si.compute_snrs(wv)
@@ -29,6 +29,7 @@ def plot_preprocessed(dataset, config: DictConfig):
             alpha_waveforms=0.1
         )
         plt.show()
+        
     if config["output"]["preprocess"]["plot_snrs"]:
         plt.plot(snrs.keys(), snrs.values(), 'o')
         plt.show()
