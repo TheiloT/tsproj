@@ -703,8 +703,8 @@ class CDL:
                 chosen_vals
             )  # Returns the filter with the highest inner product
             coeff_idx = chosen_idx[filter_idx]  # index within the chosen filter
-            if self.config["output"]["verbose"] > 1:
-                print("Choice", chosen_vals[filter_idx], filter_idx, coeff_idx)
+            # if self.config["output"]["verbose"] > 1:
+            #     print("Choice", chosen_vals[filter_idx], filter_idx, coeff_idx)
 
             #######################
             # Projection step

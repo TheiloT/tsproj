@@ -35,7 +35,7 @@ def fft_rec(rec, end_frame=100000, freq_lim=6000):
     frequencies = np.fft.fftfreq(len(tr), 1/fs)#[:len(tr)//2]
     
     # Plot the original signal and its frequency domain representation
-    plt.figure(figsize=(13, 7))
+    plt.figure(figsize=(10, 7))
     plt.subplot(2, 1, 1)
     plt.plot(t, tr)
     plt.title('Original Signal')

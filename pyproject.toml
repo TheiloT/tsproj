@@ -17,7 +17,8 @@ dependencies = [
     "spikeinterface==0.99.1",
     "numba==0.58.1",
     "seaborn==0.13.0",
-    "ipympl==0.9.3"
+    "ipympl==0.9.3",
+    "jupyter==1.0.0"
 ]
 
 [tool.setuptools.packages.find]
