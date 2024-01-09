@@ -228,7 +228,6 @@ class Dictionary:
         """
         Extract the signal for which the corresponding coefficients are non-zero
         """
-
         arrindices = np.zeros(dlen*np.size(indices), dtype=int)
         for i, value in enumerate(indices):
             arrindices[i*dlen:(i+1)*dlen] = np.arange(value, value+dlen)
@@ -434,7 +433,6 @@ class Dictionary:
         interpolator: Dictionary
             Dictionary of interpolator functions
         """
-
         interpolator = {}
         if numOfsubgrids<=1:
             return self.dictionary, interpolator
