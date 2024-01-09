@@ -3,6 +3,8 @@ type: synth
 name:  synthetic
 recording: synthetic
 uri:
+first_unit_index:
+none_unit:
 
 tstart_s:
 tstop_s:

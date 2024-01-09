@@ -114,12 +114,6 @@ def get_dataset(config: DictConfig):
             np.random.seed(previous_random_state)
         if config["output"]["verbose"] > 0:
             print("Data generated")
-
-        import matplotlib.pyplot as plt
-        plt.figure(figsize=(20, 5))
-        plt.plot(signal_train)
-        plt.plot(truth_train)
-        plt.show()
         
         ####################################
         # Convert to a spikeinterface BaseRecording
