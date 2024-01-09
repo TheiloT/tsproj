@@ -318,6 +318,8 @@ class CDL:
 
         reconstructed = np.zeros((N_seg, seg_size + interpolated_dict.shape[0] - 1))
         reconstructed_final = np.zeros((N_seg, seg_size))
+
+        max_plot = 0
         
         for seg_nb, seg_idx in enumerate(sparse_coeffs.keys()):
             active_i = []
@@ -375,8 +377,9 @@ class CDL:
                 min_diff_unit = None                    
                     
             if (seg_nb < 10) or min_diff > 15:
-                if self.config["output"]["plot"] > 1:
+                if self.config["output"]["plot"] > 1 and max_plot < 20:
                     plot_reconstructed(traces_seg, seg_idx, reconstructed_final, seg_nb, active_atoms, active_i, min_diff, min_diff_unit, mode, label)
+                    max_plot += 1
             else:
                 if self.config["output"]["plot"] > 1:
                     print("\rNot reconstructing segment {}/{}".format(seg_nb, total_number_of_segments), end="")
@@ -547,9 +550,30 @@ class CDL:
                     
                     spike_idx = idx
                     min_diff, min_diff_unit = self.get_distance_to_min_diff_unit(spike_idx, sorting_true)
+                    # first should do the hungarian matching like spike interface
+                    # print(self.config["dataset"]["first_unit_index"])
+                    # print(min_diff_unit)
+                    if self.config["dataset"]["first_unit_index"]:
+                        if min_diff_unit is not None:
+                            # print("Minus first unit index")
+                            min_diff_unit -= self.config["dataset"]["first_unit_index"]
+                    # print(min_diff_unit)
+                    # if mode == "whole":
+                    #     print("min_diff", min_diff, min_diff_unit, self.config["output"]["fp_threshold_ms"]/1000 * fs, atom)
+                    #     print(idx-self.dictionary.element_length//2)
+                    #     samples_clean.to_csv("samples_clean.csv")
+                    #     pd.DataFrame(sorting_true.to_spike_vector(concatenated=True)).to_csv("sorting_true.csv")
+                    #     input()                    
                     if min_diff > (self.config["output"]["fp_threshold_ms"]/1000 * fs):
                         min_diff, min_diff_unit = None, None
-                    if (min_diff_unit != atom):
+                    if self.config["dataset"]["none_unit"] and min_diff_unit is None:
+                        min_diff_unit = self.config["dataset"]["none_unit"]
+                        min_diff = 0
+                    if min_diff_unit is not None:
+                        min_diff_unit = int(min_diff_unit)
+                    if atom is not None:
+                        atom = int(atom)
+                    if min_diff_unit != atom:
                         false_positives[seg_idx][atom].append({
                             "firing_idx": firing_idx,  # Firing sample idx within the segment
                             "closest_atom": min_diff_unit
@@ -559,9 +583,14 @@ class CDL:
                             "firing_idx": firing_idx,  # Firing sample idx within the segment
                             "closest_atom": min_diff_unit
                             })
+        # print("True positives", true_positives)
+        # print("False positives", false_positives)
                      
         return true_positives, false_positives
-                
+
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################      
     def code_sparse(self, dense_coeffs, interpolated_dict):
         """
         Sparse representation of the dense coeffs
@@ -600,9 +629,15 @@ class CDL:
 
         return sparse_coeffs
 
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def terminate_csc(self, numOfiter, numOfmaxcoeffs, err_residual, err_bound):
         return (err_residual < err_bound) or (numOfiter >= numOfmaxcoeffs)
 
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def csc(self, y_seg, dictionary, sparsity=None, err=None, boundary=True):
         """
         Given data segment, extract convolutional codes
@@ -717,6 +752,9 @@ class CDL:
         # print(coeffs.shape)
         return coeffs
 
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def computeNorm(self, delem, slen):
         """
         Compute norm of the all possible timeshifts of the dictionary
@@ -740,6 +778,9 @@ class CDL:
 
         return norms
 
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def sc_cholesky(self, lower, d, newelem, sig):
         """
         Efficient implementation of the least squares step to compute sparse code using Cholesky decomposition
