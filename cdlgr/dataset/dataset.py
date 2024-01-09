@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pprint import pprint
 from time import time
 
+
 @dataclass
 class Dataset:
     recording: si.BaseRecording
@@ -15,7 +16,20 @@ class Dataset:
     sorting_true: si.BaseSorting
     sorting_true_test: si.BaseSorting
     
+    
 def get_dataset(config: DictConfig):
+    """
+    Get the dataset (either synthetic or real) based on the provided configuration.
+
+    Inputs
+    ======
+    config: DictConfig
+        The configuration for the dataset.
+
+    Outputs
+    =======
+    Dataset: The dataset object, split into training and test datasets, containing the recording and sorting data.
+    """
     type_dataset = config["dataset"]["type"]
 
     t_start = config["dataset"]["tstart_s"]
@@ -68,8 +82,6 @@ def get_dataset(config: DictConfig):
                 print("Preprocessing recording...")
             recording = si.bandpass_filter(recording, freq_min=config["dataset"]["preprocess_params"]["freq_min"], freq_max=config["dataset"]["preprocess_params"]["freq_max"])
             recording = si.common_reference(recording, reference='global')
-            # recording = si.whiten(recording, int_scale=200,
-            #                         chunk_size=1000)
         
         recording_test, sorting_test = subset_data(config, recording, sorting_true, t_start_test, t_stop_test, "test")
         recording, sorting_true = subset_data(config, recording, sorting_true, t_start, t_stop, "training")

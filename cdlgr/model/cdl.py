@@ -20,6 +20,25 @@ from cdlgr.outputs.plot import plot_reconstructed, plot_firing, plot_traces
 
 
 class CDL:
+    """
+    Class representing the CDL (Convolutional Dictionary Learning) model.
+
+    Inputs
+    ======
+    dictionary (Dictionary): The dictionary object.
+    config (dict): Configuration parameters for the CDL model.
+
+    Attributes
+    ==========
+    config (dict): Configuration parameters for the CDL model.
+    dictionary (Dictionary): The dictionary object.
+    num_iterations (int): The number of iterations for the CDL model.
+    interpolate (bool): Number of sub-samples to use for interpolation. No interpolation if 0.
+    sparsity_tol (float): Sparsity threshold above which the algorithm stops.
+    error_tol (float): Error tolerance below which the algorithm stops.
+    channel (int): The channel ID indicating the channel to use in the dataset.
+    interpolator_type (str): The type of interpolator used in the CDL model.
+    """
     def __init__(self, dictionary, config):
         self.config = config
         self.dictionary: Dictionary = dictionary
@@ -30,6 +49,18 @@ class CDL:
         self.sparsity_tol = self.config["model"]["cdl"]["sparsity_tol"]
         self.error_tol = self.config["model"]["cdl"]["error_tol"]
 
+    def split_traces(self):
+        """
+        Splits the traces into segments centered around peaks, according to the input configuration.
+
+        Outputs
+        =======
+        dict: A dictionary containing the segmented traces.
+        """
+        time_preprocessing_begin = perf_counter()
+        if self.config["output"]["verbose"] > 0:
+            print("\nSplitting traces...")
+        ...
     def split_traces(self):
         time_preprocessing_begin = perf_counter()
         if self.config["output"]["verbose"] > 0:
@@ -227,7 +258,9 @@ class CDL:
             np.savetxt("time_test.txt", [time_diff], fmt="%f")
 
     def find_best_templates_permutation(self, sparse_coeffs=None):
-        # Ensure consistency in the indexation of the filters between true and estimated dictionaries
+        """
+        Used to ensure consistency in the indexation of the filters between true and estimated dictionaries.
+        """
         best_perm, best_total_error = None, np.infty
         copy_dictionary = deepcopy(self.dictionary)
         for perm in permutations(range(self.dictionary.num_elements)):
@@ -275,6 +308,10 @@ class CDL:
             json.dump(sp, f, indent=4)
 
     def get_distance_to_min_diff_unit(self, spike_idx, sorting_true):
+        """ 
+        Get the distance between passed spike index and the index of the closest true event according to the ground truth sorting,
+        along with the associated unit.
+        """
         min_diff = np.inf
         min_diff_unit = None
         for unit in sorting_true.unit_ids:
@@ -550,20 +587,9 @@ class CDL:
                     
                     spike_idx = idx
                     min_diff, min_diff_unit = self.get_distance_to_min_diff_unit(spike_idx, sorting_true)
-                    # first should do the hungarian matching like spike interface
-                    # print(self.config["dataset"]["first_unit_index"])
-                    # print(min_diff_unit)
                     if self.config["dataset"]["first_unit_index"]:
                         if min_diff_unit is not None:
-                            # print("Minus first unit index")
                             min_diff_unit -= self.config["dataset"]["first_unit_index"]
-                    # print(min_diff_unit)
-                    # if mode == "whole":
-                    #     print("min_diff", min_diff, min_diff_unit, self.config["output"]["fp_threshold_ms"]/1000 * fs, atom)
-                    #     print(idx-self.dictionary.element_length//2)
-                    #     samples_clean.to_csv("samples_clean.csv")
-                    #     pd.DataFrame(sorting_true.to_spike_vector(concatenated=True)).to_csv("sorting_true.csv")
-                    #     input()                    
                     if min_diff > (self.config["output"]["fp_threshold_ms"]/1000 * fs):
                         min_diff, min_diff_unit = None, None
                     if self.config["dataset"]["none_unit"] and min_diff_unit is None:
@@ -583,8 +609,6 @@ class CDL:
                             "firing_idx": firing_idx,  # Firing sample idx within the segment
                             "closest_atom": min_diff_unit
                             })
-        # print("True positives", true_positives)
-        # print("False positives", false_positives)
                      
         return true_positives, false_positives
 
@@ -745,11 +769,8 @@ class CDL:
             coeffs[temp_idx[: iternum + 1]] = sparse_code
 
             iternum += 1
-            # print("CSC", iternum, err_residual)
 
             err_residual = np.linalg.norm(residual) / np.sqrt(np.size(residual))
-        # print(coeffs)
-        # print(coeffs.shape)
         return coeffs
 
     ####################################
@@ -787,7 +808,6 @@ class CDL:
 
         Inputs
         ======
-
         lower: lower triangular matrix
         d: current dictionary (set of regressors)
         newelem: new dictionary element to be added
@@ -795,12 +815,9 @@ class CDL:
 
         Outputs
         =======
-
         lower_new: newly computed lower triangluar matrix
         sparse_code: sparse code for the newly updated dictionary
-
         """
-
         dim = np.shape(lower)[0]
 
         if d.size == 0:

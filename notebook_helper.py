@@ -206,8 +206,8 @@ def report_multirun_time(dataset, experiment, num_elements=2, interpolations=np.
             time_csc_by_interp[interpolation].append(time["time_csc"][0])
             time_cdu_by_interp[interpolation].append(time["time_update"][0])
         print("interpolation:", interpolation)
-        print(f"\tCSC cumulative time: {np.mean(time_csc_by_interp[interpolation]):.3f} s +/- {np.std(time_csc_by_interp[interpolation]):.3f} s")
-        print(f"\tCDU cumulative time: {np.mean(time_cdu_by_interp[interpolation]):.3f} s +/- {np.std(time_cdu_by_interp[interpolation]):.3f} s")
+        print(f"\tCSC mean time: {np.mean(time_csc_by_interp[interpolation]):.3f} s +/- {np.std(time_csc_by_interp[interpolation]):.3f} s")
+        print(f"\tCDU mean time: {np.mean(time_cdu_by_interp[interpolation]):.3f} s +/- {np.std(time_cdu_by_interp[interpolation]):.3f} s")
         print()
 
 

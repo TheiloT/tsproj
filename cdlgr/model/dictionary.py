@@ -6,6 +6,16 @@ from cdlgr.dataset.dataset import Dataset
 from cdlgr.outputs.plot import plot_template_and_truth, plot_template_and_truth_interp, plot_templates
 
 class Dictionary:
+    """
+    A dictionary used by the COMP algorithm.
+
+    Attributes
+    ==========
+    dataset : Dataset
+        The dataset object containing the recording and sorting information.
+    config : dict
+        The configuration settings for the dictionary.
+    """    
     def __init__(self, dataset, config):
         self.dataset: Dataset = dataset
         self.config = config
@@ -21,11 +31,17 @@ class Dictionary:
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
 
     def save(self):
+        """
+        Save the dictionary to a file.
+        """
         np.savez("dictionary.npz", dictionary=self.dictionary,
                  true_dictionary=self.true_dictionary,
                  fs=self.fs)
 
     def initialize(self):
+        """
+        Initialize a new instance of the Dictionary class, either randomly or using groundtruth templates.
+        """
         if self.config["output"]["verbose"] > 0:
             print("Initializing dictionary...")
 
@@ -90,20 +106,17 @@ class Dictionary:
     ####################################
     def recovery_error_interp(self, iteration, numOfsubgrids, save_plots=True):
         """
-
-        Compute the error between the corresponding columns of the two dictionaries.
+        Compute the error between the corresponding columns of the two dictionaries, interpolating and shifting the groundtruth dictionary
+        to find the optimal match with the estimated dictionary.
 
         Inputs
         ======
-
         dict1: dictionary 1
         dict2: dictionary 2
 
         Outputs
         =======
-
         err_distance: error distance between the filters
-
         """
         dict1 = self.true_dictionary
         dict2 = self.dictionary
@@ -157,27 +170,21 @@ class Dictionary:
     # Initial function below from Andrew H. Song, repository SRCDL
     ####################################
     def recovery_error(self, iteration, save_plots=True):
-
         """
         Compute the error between the corresponding columns of the two dictionaries.
 
         Inputs
         ======
-
         dict1: dictionary 1
         dict2: dictionary 2
 
         Outputs
         =======
-
         err_distance: error distance between the filters
-
         """
         dict2 = self.dictionary
         dict1 = self.true_dictionary
         
-        # print(dict1.shape, dict2.shape)
-
         if dict2.shape[1] > dict1.shape[1]:
             if self.config["output"]["verbose"] > 0:
                 print("Truncating dictionary")
@@ -220,7 +227,6 @@ class Dictionary:
     def getSignalIndices(self, dlen, indices):
         """
         Extract the signal for which the corresponding coefficients are non-zero
-
         """
 
         arrindices = np.zeros(dlen*np.size(indices), dtype=int)
@@ -233,10 +239,12 @@ class Dictionary:
     # Initial function below from Andrew H. Song, repository SRCDL
     ####################################
     def update(self, y_seg_set, coeffs, interpolator=None):
+        """
+        Perform dictionary update.
+        """
         assert(len(y_seg_set.keys())==len(coeffs.keys())), "The dimension of data and coeff need to match"
 
         d = self.dictionary
-        # print("Dictionary", d.shape)
 
         if len(interpolator)==0:
             interpolator={}
@@ -259,7 +267,6 @@ class Dictionary:
                 clen = slen + self.element_length - 1
 
                 numOfinterp = len(interpolator.keys())
-                # print("numOfinterp", numOfinterp)
 
                 coeffs_seg = {}
                 filter_delay_indices = {}
@@ -341,7 +348,6 @@ class Dictionary:
                     print("Non matching!")
                 pass
 
-        # return d_updated, indices_set, coeffs_set, y_extracted_set
         self.dictionary = d_updated
 
         return y_extracted_set
@@ -357,7 +363,6 @@ class Dictionary:
         Inputs
         ======
         interpolator: array
-
         """
         interplen = len(interpolator)
         assert np.mod(interplen,2)==1, "Interpolator legnth must be odd"
@@ -416,7 +421,6 @@ class Dictionary:
     def interpolate(self, numOfsubgrids, normalize=True, kind='cubic'):
         """
         Generates interpolated dictionary given the original dictionary and number of subgrids
-        (TODO): Incorporate with generate_sinc_Dictionary
 
         Inputs
         ======
@@ -429,7 +433,6 @@ class Dictionary:
         =======
         interpolator: Dictionary
             Dictionary of interpolator functions
-
         """
 
         interpolator = {}
@@ -497,7 +500,5 @@ class Dictionary:
 
         if normalize:
             d_interpolated = d_interpolated/np.linalg.norm(d_interpolated, axis=0)
-
-        # self.dictionary = d_interpolated
 
         return d_interpolated, interpolator
