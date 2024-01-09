@@ -12,7 +12,7 @@ The parts of the code coming from [srcdl](https://github.com/ds2p/srcdl) are hig
 Please create a specific Python 3.11 environment, and then install the cdlgr package: `pip install -e .`. 
 You will then be able to run the command `ssrun` from the package.
 
-Note that you will need to set up Kachery Cloud (*i.e.* link it with your Github account) to be able to download spikeforest datasets, with the command `kachery-cloud-init`.
+Note that you may need to set up Kachery Cloud (*i.e.* link it with your Github account) to be able to download spikeforest datasets, with the command `kachery-cloud-init` (if automatic configuration fails).
 
 ## Use
 
