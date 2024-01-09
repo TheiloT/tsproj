@@ -5,6 +5,8 @@ Mini-Project for the MVA class ML for Timeseries, based on the study of the arti
 > Convolutional sparse coding (CSC) and convolutional dictionary learning (CDL) for off-the-grid events.
 > Song, A., Flores, F., and Ba D., **Convolutional Dictionary Learning with Grid Refinement**, *IEEE Transaction on Signal Processing*, 2020
 
+Report is available [here](https://github.com/florian6973/tsproj/blob/main/31_Report.pdf)
+
 The parts of the code coming from [srcdl](https://github.com/ds2p/srcdl) are highlighted with comments.
 
 ## Installation
