@@ -139,7 +139,18 @@ def get_dataset(config: DictConfig):
             print()
 
     return Dataset(recording=recording, sorting_true=sorting_true, recording_test=recording_test, sorting_true_test=sorting_test)
-        
+
+def subset_data_slice(config: DictConfig, data, t_start, t_stop, message):
+    if t_start is not None or t_stop is not None:
+        if config["output"]["verbose"] > 0:
+            print(f"Subsetting {message}...")
+        return data.frame_slice(start_frame=int(t_start * data.get_sampling_frequency()), end_frame=int(t_stop * data.get_sampling_frequency()))
+    return data
+
+def subset_data(config: DictConfig, recording, sorting, t_start, t_stop, message):
+    recording = subset_data_slice(config, recording, t_start, t_stop, message)
+    sorting_true = subset_data_slice(config, sorting, t_start, t_stop, message)
+    return recording, sorting_true
 
 def get_recording_from_signal(signal, fs):
     traces = np.expand_dims(signal, axis=1)
@@ -157,6 +168,10 @@ def get_sorting_from_events(event_indices, fs, filter_length, num_sources, numOf
     return se.NumpySorting.from_times_labels([times], [labels], fs)
 
 
+
+####################################
+# Initial function below from Andrew H. Song, repository SRCDL
+####################################
 def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictionary, filter_length, amps=[0,1]):
     """
     Generate continuous data and its sampled version.
@@ -247,17 +262,3 @@ def generate_Simulated_continuous(config: DictConfig, numOfevents, T, fs, dictio
             signal[start_sample : start_sample + filter_length_in_samples] += filter_realization/maxamp*amp
             
     return signal, events_indices
-
-
-def subset_data_slice(config: DictConfig, data, t_start, t_stop, message):
-    if t_start is not None or t_stop is not None:
-        if config["output"]["verbose"] > 0:
-            print(f"Subsetting {message}...")
-        return data.frame_slice(start_frame=int(t_start * data.get_sampling_frequency()), end_frame=int(t_stop * data.get_sampling_frequency()))
-    return data
-
-
-def subset_data(config: DictConfig, recording, sorting, t_start, t_stop, message):
-    recording = subset_data_slice(config, recording, t_start, t_stop, message)
-    sorting_true = subset_data_slice(config, sorting, t_start, t_stop, message)
-    return recording, sorting_true

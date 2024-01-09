@@ -85,6 +85,9 @@ class Dictionary:
 
             self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
     
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def recovery_error_interp(self, iteration, numOfsubgrids, save_plots=True):
         """
 
@@ -150,6 +153,9 @@ class Dictionary:
                 
         return err_distance, indices, time_offset
     
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def recovery_error(self, iteration, save_plots=True):
 
         """
@@ -204,10 +210,13 @@ class Dictionary:
 
 
         return err_distance
-            
+    
     def normalize(self):
         self.dictionary /= np.linalg.norm(self.dictionary, axis=0)
    
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def getSignalIndices(self, dlen, indices):
         """
         Extract the signal for which the corresponding coefficients are non-zero
@@ -219,7 +228,10 @@ class Dictionary:
             arrindices[i*dlen:(i+1)*dlen] = np.arange(value, value+dlen)
 
         return arrindices
-
+    
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def update(self, y_seg_set, coeffs, interpolator=None):
         assert(len(y_seg_set.keys())==len(coeffs.keys())), "The dimension of data and coeff need to match"
 
@@ -334,6 +346,10 @@ class Dictionary:
 
         return y_extracted_set
 
+
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def compute_interp_matrix(self, interpolator, dlen):
         """
         For no interpolator case, the result should just be an identity matrix
@@ -362,6 +378,9 @@ class Dictionary:
 
         return shift_mat
     
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def compute_diff_matrix(self, interpolator_i, interpolator_j, i, j, dlen):
         """
         Multiply two matrices for the denominator of the updated dictionary
@@ -391,6 +410,9 @@ class Dictionary:
 
         return diff_matrix
         
+    ####################################
+    # Initial function below from Andrew H. Song, repository SRCDL
+    ####################################
     def interpolate(self, numOfsubgrids, normalize=True, kind='cubic'):
         """
         Generates interpolated dictionary given the original dictionary and number of subgrids
